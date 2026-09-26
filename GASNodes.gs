@@ -31,6 +31,49 @@ var SETTINGS = {
   DEFAULT_ALLOWED_SKEW_MS: 5 * 60 * 1000
 };
 
+/**
+ * Security bootstrap defaults ("up top"):
+ * - If script properties are not set, these defaults apply.
+ * - Keep SHARED_SECRET empty in source control; host should set either:
+ *   1) Script Property MESHNET_SHARED_SECRET (recommended), or
+ *   2) SECURITY_BOOTSTRAP.SHARED_SECRET directly in this file.
+ */
+var SECURITY_BOOTSTRAP = {
+  SHARED_SECRET: '',
+  ENFORCE_SESSIONS: true,
+  REQUIRE_REGISTER_HANDSHAKE: true,
+  SESSION_TTL_SEC: 60 * 60,
+  NONCE_TTL_SEC: 15 * 60,
+  TIMESTAMP_SKEW_MS: 5 * 60 * 1000
+};
+
+var KHANARY_CONTROL_GRAMMAR = {
+  VERSION: 'khanary.control.v1',
+  TOKEN_TYPES: [
+    'verb',
+    'command',
+    'function',
+    'tool_call',
+    'args',
+    'capability',
+    'flag',
+    'literal',
+    'peer',
+    'route'
+  ],
+  VERB_OPCODE: {
+    invoke: 'CALL',
+    call: 'CALL',
+    send: 'SEND',
+    query: 'QUERY',
+    route: 'ROUTE',
+    execute: 'EXEC',
+    run: 'EXEC',
+    emit: 'EMIT',
+    register: 'REGISTER'
+  }
+};
+
 function doGet(e) {
   return routeRequest_('GET', e || {});
 }
@@ -44,6 +87,8 @@ function routeRequest_(method, e) {
     var payload = parsePayload_(method, e);
     var endpoint = resolveEndpoint_(e, payload);
     if (!endpoint) endpoint = 'status';
+
+    validateSecurityConfiguration_(endpoint);
 
     if (!isAuthorized_(payload, endpoint)) {
       return jsonResponse_({
@@ -91,6 +136,8 @@ function dispatchEndpoint_(endpoint, payload) {
       return handleSend_(payload);
     case 'peers':
       return handleGetPeers_(payload);
+    case 'transpile':
+      return handleTranspile_(payload);
     default:
       throw appError_('invalid_endpoint', 'Invalid endpoint: ' + endpoint);
   }
@@ -106,7 +153,8 @@ function handleStatus_() {
     peerCount: peers.length,
     sessionEnforced: isSessionEnforced_(),
     registerHandshakeEnforced: isRegisterHandshakeEnforced_(),
-    codeHashAllowlistConfigured: getCodeHashAllowlist_().length > 0
+    codeHashAllowlistConfigured: getCodeHashAllowlist_().length > 0,
+    securityMisconfigured: isSessionEnforced_() && !getSharedSecret_()
   };
 }
 
@@ -246,6 +294,21 @@ function handleGetPeers_(data) {
   };
 }
 
+function handleTranspile_(data) {
+  var peerId = normalizePeerId_(data.peerId || data.id);
+  if (isSessionEnforced_()) {
+    if (!peerId) {
+      throw appError_('invalid_peer_id', 'peerId is required when sessions are enforced');
+    }
+    requireSessionForPeer_(data, 'transpile', peerId);
+    touchPeer_(peerId);
+  } else if (peerId) {
+    touchPeer_(peerId);
+  }
+
+  return transpileControlGrammar_(data || {});
+}
+
 // -----------------------------------------------------------------------------
 // Auth / Endpoint / Parsing
 // -----------------------------------------------------------------------------
@@ -350,12 +413,398 @@ function isMutationEndpoint_(endpoint) {
          endpoint === 'peers';
 }
 
+// -----------------------------------------------------------------------------
+// KHANARY Control Grammar Transpiler
+// -----------------------------------------------------------------------------
+
+function transpileControlGrammar_(data) {
+  var normalized = normalizeProgramInput_(data || {});
+  if (normalized.statements.length === 0) {
+    throw appError_(
+      'invalid_program',
+      'Provide statements[] or tokens[] with at least one actionable intent'
+    );
+  }
+
+  var astBody = [];
+  var plan = [];
+  var warnings = normalized.warnings.slice();
+
+  for (var i = 0; i < normalized.statements.length; i++) {
+    var statement = normalizeStatement_(normalized.statements[i], i);
+    var node = buildIntentAstNode_(statement, i);
+    var op = buildExecutionPlanOp_(node, i);
+    astBody.push(node);
+    plan.push(op);
+  }
+
+  return {
+    grammar: KHANARY_CONTROL_GRAMMAR.VERSION,
+    tokenTypes: KHANARY_CONTROL_GRAMMAR.TOKEN_TYPES,
+    sourceMode: normalized.sourceMode,
+    tokenCount: normalized.tokenCount,
+    statementCount: plan.length,
+    warnings: warnings,
+    ast: {
+      type: 'Program',
+      dialect: KHANARY_CONTROL_GRAMMAR.VERSION,
+      body: astBody
+    },
+    plan: plan
+  };
+}
+
+function normalizeProgramInput_(data) {
+  var warnings = [];
+  var statements = [];
+  var tokenCount = 0;
+  var sourceMode = '';
+
+  if (Array.isArray(data.statements)) {
+    sourceMode = 'statements';
+    statements = data.statements.slice();
+  } else if (Array.isArray(data.tokens)) {
+    sourceMode = 'tokens';
+    tokenCount = data.tokens.length;
+    statements = tokensToStatements_(data.tokens, warnings);
+  } else {
+    sourceMode = 'none';
+  }
+
+  return {
+    sourceMode: sourceMode,
+    tokenCount: tokenCount,
+    statements: statements,
+    warnings: warnings
+  };
+}
+
+function tokensToStatements_(tokens, warnings) {
+  var statements = [];
+  var current = createEmptyStatement_();
+
+  for (var i = 0; i < tokens.length; i++) {
+    var token = normalizeToken_(tokens[i], i);
+    if (token.type === 'literal') {
+      // Statement boundary markers.
+      if (token.value === ';' || token.value === 'EOL' || token.value === 'NEWLINE') {
+        if (statementHasContent_(current)) {
+          statements.push(current);
+          current = createEmptyStatement_();
+        }
+        continue;
+      }
+      current.literals.push(token.value);
+      continue;
+    }
+
+    if (token.type === 'verb' && statementHasContent_(current) && current.verb) {
+      statements.push(current);
+      current = createEmptyStatement_();
+    }
+
+    assignTokenToStatement_(current, token, warnings);
+  }
+
+  if (statementHasContent_(current)) {
+    statements.push(current);
+  }
+
+  return statements;
+}
+
+function normalizeToken_(token, index) {
+  if (!token || typeof token !== 'object' || Array.isArray(token)) {
+    throw appError_('invalid_token', 'Token at index ' + index + ' must be an object');
+  }
+
+  var rawType = token.type || token.kind || token.token;
+  var type = normalizeTokenType_(rawType);
+  if (!type) {
+    throw appError_('invalid_token', 'Unknown token type at index ' + index + ': ' + rawType);
+  }
+
+  var value = token.value;
+  if (type === 'args') {
+    return {
+      type: type,
+      value: normalizeArgs_(value, index)
+    };
+  }
+
+  if (type === 'flag') {
+    return {
+      type: type,
+      value: normalizeIdentifierLike_(value, 'flag', 128)
+    };
+  }
+
+  if (type === 'literal') {
+    return {
+      type: type,
+      value: String(value === undefined || value === null ? '' : value).trim()
+    };
+  }
+
+  return {
+    type: type,
+    value: normalizeIdentifierLike_(value, type, 256)
+  };
+}
+
+function normalizeTokenType_(rawType) {
+  var t = String(rawType || '').trim().toLowerCase();
+  if (!t) return '';
+
+  if (t === 'tool' || t === 'toolcall' || t === 'tool-call') return 'tool_call';
+  if (t === 'fn' || t === 'func') return 'function';
+  if (t === 'cmd') return 'command';
+  if (t === 'arg' || t === 'params' || t === 'arguments') return 'args';
+  if (t === 'cap' || t === 'scope') return 'capability';
+  if (t === 'route_id') return 'route';
+
+  for (var i = 0; i < KHANARY_CONTROL_GRAMMAR.TOKEN_TYPES.length; i++) {
+    if (KHANARY_CONTROL_GRAMMAR.TOKEN_TYPES[i] === t) {
+      return t;
+    }
+  }
+  return '';
+}
+
+function createEmptyStatement_() {
+  return {
+    verb: '',
+    command: '',
+    'function': '',
+    tool_call: '',
+    capability: '',
+    peer: '',
+    route: '',
+    args: {},
+    flags: [],
+    literals: []
+  };
+}
+
+function statementHasContent_(statement) {
+  return !!(
+    statement.verb ||
+    statement.command ||
+    statement['function'] ||
+    statement.tool_call ||
+    statement.capability ||
+    statement.peer ||
+    statement.route ||
+    statement.flags.length ||
+    statement.literals.length ||
+    Object.keys(statement.args).length
+  );
+}
+
+function assignTokenToStatement_(statement, token, warnings) {
+  switch (token.type) {
+    case 'verb':
+      statement.verb = normalizeVerb_(token.value);
+      return;
+    case 'command':
+      statement.command = token.value;
+      return;
+    case 'function':
+      statement['function'] = token.value;
+      return;
+    case 'tool_call':
+      statement.tool_call = token.value;
+      return;
+    case 'capability':
+      statement.capability = token.value;
+      return;
+    case 'peer':
+      statement.peer = token.value;
+      return;
+    case 'route':
+      statement.route = token.value;
+      return;
+    case 'args':
+      statement.args = mergePlainObjects_(statement.args, token.value);
+      return;
+    case 'flag':
+      if (statement.flags.indexOf(token.value) === -1) {
+        statement.flags.push(token.value);
+      } else {
+        warnings.push('Duplicate flag ignored: ' + token.value);
+      }
+      return;
+    default:
+      warnings.push('Unhandled token type ignored: ' + token.type);
+  }
+}
+
+function normalizeStatement_(raw, index) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw appError_('invalid_statement', 'Statement at index ' + index + ' must be an object');
+  }
+
+  var normalized = createEmptyStatement_();
+  normalized.verb = normalizeVerb_(raw.verb || raw.action || raw.op || '');
+  normalized.command = optionalIdentifierLike_(raw.command || raw.cmd || '', 'command', 256);
+  normalized['function'] = optionalIdentifierLike_(raw['function'] || raw.fn || '', 'function', 256);
+  normalized.tool_call = optionalIdentifierLike_(raw.tool_call || raw.tool || raw.toolcall || '', 'tool_call', 256);
+  normalized.capability = optionalIdentifierLike_(raw.capability || raw.scope || '', 'capability', 128);
+  normalized.peer = optionalIdentifierLike_(raw.peer || raw.targetPeer || '', 'peer', 128);
+  normalized.route = optionalIdentifierLike_(raw.route || raw.routeId || '', 'route', 128);
+  normalized.args = normalizeArgs_(raw.args || raw.arguments || raw.params || {}, index);
+
+  if (Array.isArray(raw.flags)) {
+    for (var i = 0; i < raw.flags.length; i++) {
+      var flagValue = optionalIdentifierLike_(raw.flags[i], 'flag', 128);
+      if (flagValue && normalized.flags.indexOf(flagValue) === -1) {
+        normalized.flags.push(flagValue);
+      }
+    }
+  }
+
+  if (Array.isArray(raw.literals)) {
+    for (var j = 0; j < raw.literals.length; j++) {
+      var lit = String(raw.literals[j] === undefined || raw.literals[j] === null ? '' : raw.literals[j]).trim();
+      if (lit) normalized.literals.push(lit);
+    }
+  }
+
+  if (!normalized.verb) {
+    normalized.verb = deriveVerb_(normalized);
+  }
+
+  var hasAction = !!(
+    normalized.command ||
+    normalized['function'] ||
+    normalized.tool_call ||
+    normalized.route
+  );
+  if (!hasAction) {
+    throw appError_(
+      'invalid_statement',
+      'Statement at index ' + index + ' has no command/function/tool_call/route'
+    );
+  }
+
+  return normalized;
+}
+
+function buildIntentAstNode_(statement, index) {
+  return {
+    type: 'Intent',
+    index: index,
+    verb: statement.verb,
+    command: statement.command || null,
+    'function': statement['function'] || null,
+    tool_call: statement.tool_call || null,
+    route: statement.route || null,
+    peer: statement.peer || null,
+    capability: statement.capability || null,
+    args: statement.args,
+    flags: statement.flags,
+    literals: statement.literals
+  };
+}
+
+function buildExecutionPlanOp_(node, index) {
+  return {
+    index: index,
+    opcode: resolveOpcodeForVerb_(node.verb),
+    verb: node.verb,
+    target: node.tool_call || node['function'] || node.command || node.route,
+    command: node.command,
+    'function': node['function'],
+    tool_call: node.tool_call,
+    route: node.route,
+    peer: node.peer,
+    capability: node.capability,
+    args: node.args,
+    flags: node.flags
+  };
+}
+
+function deriveVerb_(statement) {
+  if (statement.route) return 'route';
+  if (statement.tool_call || statement['function']) return 'invoke';
+  if (statement.command) return 'execute';
+  return 'invoke';
+}
+
+function normalizeVerb_(value) {
+  var v = optionalIdentifierLike_(value, 'verb', 64).toLowerCase();
+  if (!v) return '';
+  return v;
+}
+
+function resolveOpcodeForVerb_(verb) {
+  if (KHANARY_CONTROL_GRAMMAR.VERB_OPCODE[verb]) {
+    return KHANARY_CONTROL_GRAMMAR.VERB_OPCODE[verb];
+  }
+  return 'EXEC';
+}
+
+function optionalIdentifierLike_(value, fieldName, maxLen) {
+  if (value === undefined || value === null || value === '') return '';
+  return normalizeIdentifierLike_(value, fieldName, maxLen);
+}
+
+function normalizeIdentifierLike_(value, fieldName, maxLen) {
+  var out = String(value === undefined || value === null ? '' : value).trim();
+  if (!out) {
+    throw appError_('invalid_' + fieldName, 'Missing or invalid ' + fieldName);
+  }
+  if (out.length > maxLen) {
+    throw appError_('invalid_' + fieldName, fieldName + ' too long');
+  }
+  if (!/^[A-Za-z0-9._:-]+$/.test(out)) {
+    throw appError_('invalid_' + fieldName, fieldName + ' contains unsupported characters');
+  }
+  return out;
+}
+
+function normalizeArgs_(argsValue, index) {
+  if (argsValue === undefined || argsValue === null || argsValue === '') {
+    return {};
+  }
+
+  if (typeof argsValue === 'string') {
+    var raw = argsValue.trim();
+    if (!raw) return {};
+    try {
+      argsValue = JSON.parse(raw);
+    } catch (err) {
+      throw appError_('invalid_args', 'args at index ' + index + ' is not valid JSON');
+    }
+  }
+
+  if (!argsValue || typeof argsValue !== 'object' || Array.isArray(argsValue)) {
+    throw appError_('invalid_args', 'args at index ' + index + ' must be an object');
+  }
+
+  return clonePlainObject_(argsValue);
+}
+
+function mergePlainObjects_(left, right) {
+  var out = clonePlainObject_(left || {});
+  var src = clonePlainObject_(right || {});
+  var keys = Object.keys(src);
+  for (var i = 0; i < keys.length; i++) {
+    out[keys[i]] = src[keys[i]];
+  }
+  return out;
+}
+
+function clonePlainObject_(obj) {
+  return JSON.parse(JSON.stringify(obj || {}));
+}
+
 function isSessionEnforced_() {
   var override = PROPERTIES.getProperty('MESHNET_ENFORCE_SESSIONS');
   if (override !== null && override !== undefined && String(override).trim() !== '') {
     return toBoolean_(override, false);
   }
-  return hasSharedSecret_();
+  return toBoolean_(SECURITY_BOOTSTRAP.ENFORCE_SESSIONS, true);
 }
 
 function isRegisterHandshakeEnforced_() {
@@ -363,7 +812,7 @@ function isRegisterHandshakeEnforced_() {
   if (override !== null && override !== undefined && String(override).trim() !== '') {
     return toBoolean_(override, false);
   }
-  return isSessionEnforced_();
+  return toBoolean_(SECURITY_BOOTSTRAP.REQUIRE_REGISTER_HANDSHAKE, true);
 }
 
 function hasSharedSecret_() {
@@ -372,8 +821,29 @@ function hasSharedSecret_() {
 
 function getSharedSecret_() {
   var raw = PROPERTIES.getProperty('MESHNET_SHARED_SECRET');
-  if (typeof raw !== 'string') return '';
-  return raw.trim();
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.trim();
+  }
+
+  if (typeof SECURITY_BOOTSTRAP.SHARED_SECRET === 'string' &&
+      SECURITY_BOOTSTRAP.SHARED_SECRET.trim()) {
+    return SECURITY_BOOTSTRAP.SHARED_SECRET.trim();
+  }
+
+  return '';
+}
+
+function validateSecurityConfiguration_(endpoint) {
+  if (endpoint === 'status' || endpoint === 'health') {
+    return;
+  }
+
+  if (isSessionEnforced_() && !getSharedSecret_()) {
+    throw appError_(
+      'security_misconfigured',
+      'Session enforcement is enabled but no shared secret is configured. Set MESHNET_SHARED_SECRET or SECURITY_BOOTSTRAP.SHARED_SECRET.'
+    );
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -473,7 +943,7 @@ function getCodeHashAllowlist_() {
 function resolveSessionTtlSec_() {
   return resolveNumberProperty_(
     'MESHNET_SESSION_TTL_SEC',
-    SETTINGS.DEFAULT_SESSION_TTL_SEC,
+    Number(SECURITY_BOOTSTRAP.SESSION_TTL_SEC) || SETTINGS.DEFAULT_SESSION_TTL_SEC,
     60,
     24 * 60 * 60
   );
@@ -482,7 +952,7 @@ function resolveSessionTtlSec_() {
 function resolveNonceTtlSec_() {
   return resolveNumberProperty_(
     'MESHNET_NONCE_TTL_SEC',
-    SETTINGS.DEFAULT_NONCE_TTL_SEC,
+    Number(SECURITY_BOOTSTRAP.NONCE_TTL_SEC) || SETTINGS.DEFAULT_NONCE_TTL_SEC,
     30,
     24 * 60 * 60
   );
@@ -491,7 +961,7 @@ function resolveNonceTtlSec_() {
 function resolveAllowedSkewMs_() {
   return resolveNumberProperty_(
     'MESHNET_TIMESTAMP_SKEW_MS',
-    SETTINGS.DEFAULT_ALLOWED_SKEW_MS,
+    Number(SECURITY_BOOTSTRAP.TIMESTAMP_SKEW_MS) || SETTINGS.DEFAULT_ALLOWED_SKEW_MS,
     5000,
     24 * 60 * 60 * 1000
   );

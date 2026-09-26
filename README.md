@@ -78,6 +78,7 @@ Purpose:
 - `poll`
 - `send`
 - `peers`
+- `transpile` (KHANARY control grammar → AST + execution plan)
 
 ### Deployment
 
@@ -120,12 +121,65 @@ revokes the old session for that `peerId`.
 ### Script properties recognized by `GASNodes.gs`
 
 - `MESHNET_SHARED_SECRET`
-- `MESHNET_ENFORCE_SESSIONS` (`true|false`; default true when shared secret exists)
-- `MESHNET_REQUIRE_REGISTER_HANDSHAKE` (`true|false`; default follows session enforcement)
+- `MESHNET_ENFORCE_SESSIONS` (`true|false`; default from `SECURITY_BOOTSTRAP.ENFORCE_SESSIONS`)
+- `MESHNET_REQUIRE_REGISTER_HANDSHAKE` (`true|false`; default from `SECURITY_BOOTSTRAP.REQUIRE_REGISTER_HANDSHAKE`)
 - `MESHNET_SESSION_TTL_SEC` (default 3600)
 - `MESHNET_NONCE_TTL_SEC` (default 900)
 - `MESHNET_TIMESTAMP_SKEW_MS` (default 300000)
 - `MESHNET_CODEHASH_ALLOWLIST` (comma/space separated SHA-256 hex list)
+
+### Secure defaults already applied "up top"
+
+`GASNodes.gs` now includes a top-level `SECURITY_BOOTSTRAP` block with:
+
+- `ENFORCE_SESSIONS: true`
+- `REQUIRE_REGISTER_HANDSHAKE: true`
+
+This means non-status endpoints fail closed until a shared secret is configured.
+Set either:
+
+1. Script Property `MESHNET_SHARED_SECRET` (recommended), or
+2. `SECURITY_BOOTSTRAP.SHARED_SECRET` directly in `GASNodes.gs`.
+
+### `transpile` endpoint (agent control grammar)
+
+`transpile` lets nodes send KHANARY control tokens/intent statements and receive a
+deterministic AST plus normalized execution plan.
+
+Token families supported:
+- `verb`
+- `command`
+- `function`
+- `tool_call`
+- `args`
+- `capability`
+- `flag`
+- `literal`
+- `peer`
+- `route`
+
+Example:
+
+```json
+{
+  "endpoint": "transpile",
+  "peerId": "canvas-x-node-1",
+  "sessionToken": "<session token from register>",
+  "tokens": [
+    { "type": "verb", "value": "invoke" },
+    { "type": "function", "value": "khanary.dispatch" },
+    { "type": "tool_call", "value": "canvas.render" },
+    { "type": "command", "value": "draw" },
+    { "type": "args", "value": { "tab": "main", "mode": "safe" } },
+    { "type": "capability", "value": "mesh.exec" }
+  ]
+}
+```
+
+Response includes:
+- `grammar` (`khanary.control.v1`)
+- `ast` (`Program` + `Intent[]`)
+- `plan` (opcode/target/args per statement)
 
 ## Crypto-network integration guidance
 
