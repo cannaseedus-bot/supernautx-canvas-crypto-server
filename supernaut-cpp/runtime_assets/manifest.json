@@ -1,0 +1,6 @@
+{
+  "name": "supernaut_local_runtime",
+  "version": "1.0.0",
+  "entry": "programs/main.json"
+}
+

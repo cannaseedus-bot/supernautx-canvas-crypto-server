@@ -1,0 +1,12 @@
+{
+  "program": "supernaut_bootstrap",
+  "steps": [
+    {
+      "op": "print",
+      "args": [
+        "supernaut runtime bootstrap ready"
+      ]
+    }
+  ]
+}
+

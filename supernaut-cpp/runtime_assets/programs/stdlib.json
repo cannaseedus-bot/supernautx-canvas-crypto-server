@@ -1,0 +1,8 @@
+{
+  "ops": [
+    { "name": "print" },
+    { "name": "add" },
+    { "name": "pi_stream_write" }
+  ]
+}
+

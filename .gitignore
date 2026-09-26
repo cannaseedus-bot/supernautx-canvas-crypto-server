@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local build outputs
+external-build/
+supernaut-cpp/build/
+supernaut-cpp/bin/
+supernaut-cpp/__pycache__/
+
+# Generated logs/temp
+*.log
+*.tmp
+*.cache
+
+# OS/editor artifacts
+.DS_Store
+Thumbs.db

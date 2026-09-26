@@ -1,0 +1,3 @@
+{"pattern": "\\b(hello|hi|hey)\\b", "semantic_fold": "GREETING", "mathml_template": "<mi>hello</mi>", "curvature_seed": 0.12, "entropy_budget": 0.72, "habitat": "surface"}
+{"pattern": "\\b(matrix|vector|tensor|eigen)\\b", "semantic_fold": "LINEAR_ALGEBRA", "mathml_template": "<mrow><mi>A</mi><mi>x</mi><mo>=</mo><mi>b</mi></mrow>", "curvature_seed": 0.34, "entropy_budget": 0.61, "habitat": "semantic"}
+{"pattern": "\\b(route|manifest|build|compile)\\b", "semantic_fold": "ORCHESTRATION", "mathml_template": "<mrow><mi>dispatch</mi></mrow>", "curvature_seed": 0.29, "entropy_budget": 0.58, "habitat": "meta"}

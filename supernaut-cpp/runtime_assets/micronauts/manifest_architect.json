@@ -1,0 +1,6 @@
+{
+  "name": "ManifestArchitect",
+  "description": "Designs manifest route and action mappings.",
+  "instructions": "Preserve route/action parity and deterministic manifest contracts."
+}
+
