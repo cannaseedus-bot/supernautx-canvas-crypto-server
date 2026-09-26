@@ -89,7 +89,43 @@ Deploy Apps Script as Web App:
 Optional auth:
 
 - Set Script Property `MESHNET_SHARED_SECRET`.
-- Send `auth.secret` (or `secret`) in request payloads.
+- `register` accepts `auth.secret` (or `secret`) and issues a short-lived `sessionToken`.
+- When session mode is enforced, `poll` / `send` / `peers` require that `sessionToken`.
+
+### Restart-aware session handshake
+
+For strict register validation, send:
+
+```json
+{
+  "endpoint": "register",
+  "peerId": "canvas-x-node-1",
+  "bootId": "2f2c4f5d-7fd1-4694-a0b8-2f0c7fcb1166",
+  "codeHash": "<sha256-hex-of-node-build>",
+  "ts": 1790378056518,
+  "nonce": "n-0001",
+  "sig": "<hmac-sha256-signature>",
+  "auth": { "secret": "<shared-secret>" }
+}
+```
+
+Signature base string:
+
+`peerId|bootId|codeHash|ts|nonce`
+
+`sig` is verified as HMAC-SHA256 (hex, base64, or websafe base64 accepted).
+Reused nonces are rejected (anti-replay), and reconnecting with a new `bootId`
+revokes the old session for that `peerId`.
+
+### Script properties recognized by `GASNodes.gs`
+
+- `MESHNET_SHARED_SECRET`
+- `MESHNET_ENFORCE_SESSIONS` (`true|false`; default true when shared secret exists)
+- `MESHNET_REQUIRE_REGISTER_HANDSHAKE` (`true|false`; default follows session enforcement)
+- `MESHNET_SESSION_TTL_SEC` (default 3600)
+- `MESHNET_NONCE_TTL_SEC` (default 900)
+- `MESHNET_TIMESTAMP_SKEW_MS` (default 300000)
+- `MESHNET_CODEHASH_ALLOWLIST` (comma/space separated SHA-256 hex list)
 
 ## Crypto-network integration guidance
 
@@ -99,4 +135,3 @@ Optional auth:
   - use unique local ports per process,
   - keep protocol/auth semantics consistent,
   - keep shared trust/issuer policy aligned.
-

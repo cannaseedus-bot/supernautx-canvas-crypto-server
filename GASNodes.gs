@@ -23,7 +23,12 @@ var SETTINGS = {
   MAX_QUEUE_LENGTH: 100,
   MAX_MESSAGE_BYTES: 16 * 1024,
   MAX_QUEUE_BYTES: 90 * 1024,
-  MAX_PEER_ID_LEN: 64
+  MAX_PEER_ID_LEN: 64,
+  MAX_BOOT_ID_LEN: 128,
+  MAX_NONCE_LEN: 128,
+  DEFAULT_SESSION_TTL_SEC: 60 * 60,
+  DEFAULT_NONCE_TTL_SEC: 15 * 60,
+  DEFAULT_ALLOWED_SKEW_MS: 5 * 60 * 1000
 };
 
 function doGet(e) {
@@ -98,7 +103,10 @@ function handleStatus_() {
     service: 'MeshNet GAS Backend',
     online: true,
     peers: peers.map(function (p) { return p.id; }),
-    peerCount: peers.length
+    peerCount: peers.length,
+    sessionEnforced: isSessionEnforced_(),
+    registerHandshakeEnforced: isRegisterHandshakeEnforced_(),
+    codeHashAllowlistConfigured: getCodeHashAllowlist_().length > 0
   };
 }
 
@@ -107,17 +115,31 @@ function handleRegister_(data) {
   var now = Date.now();
   var peerMeta = asObject_(data.meta);
 
+  var registerContext = buildRegisterContext_(
+    data,
+    peerId,
+    isRegisterHandshakeEnforced_()
+  );
+
   var peerData = {
     id: peerId,
     lastSeen: now,
     registeredAt: now,
-    meta: peerMeta
+    lastRegisterAt: now,
+    meta: peerMeta,
+    bootId: registerContext.bootId,
+    codeHash: registerContext.codeHash
   };
 
   var existing = getPeerData_(peerId);
   if (existing) {
     peerData.registeredAt = existing.registeredAt || now;
   }
+
+  revokePeerSession_(peerId);
+  var session = issueSession_(peerId, registerContext.bootId, registerContext.codeHash);
+  peerData.sessionIssuedAt = session.issuedAt;
+  peerData.sessionExpiresAt = session.expiresAt;
 
   setPeerData_(peerId, peerData);
   addPeerToList_(peerId);
@@ -128,12 +150,19 @@ function handleRegister_(data) {
 
   return {
     peerId: peerId,
-    registered: true
+    registered: true,
+    bootId: registerContext.bootId,
+    codeHash: registerContext.codeHash,
+    sessionToken: session.token,
+    sessionIssuedAt: session.issuedAt,
+    sessionExpiresAt: session.expiresAt,
+    sessionTtlSec: session.ttlSec
   };
 }
 
 function handlePoll_(data) {
   var peerId = requirePeerId_(data.peerId || data.id, 'peerId');
+  requireSessionForPeer_(data, 'poll', peerId);
   touchPeer_(peerId);
 
   var messages = getQueue_(peerId);
@@ -149,6 +178,8 @@ function handlePoll_(data) {
 
 function handleSend_(data) {
   var from = requirePeerId_(data.peerId || data.from, 'peerId');
+  requireSessionForPeer_(data, 'send', from);
+
   var type = requiredString_(data.type, 'type', 64);
   var toRaw = data.to || 'broadcast';
   var payloadData = data.data === undefined ? null : data.data;
@@ -193,13 +224,19 @@ function handleSend_(data) {
 
 function handleGetPeers_(data) {
   var peerId = normalizePeerId_(data.peerId || data.id);
-  if (peerId) {
+  if (isSessionEnforced_()) {
+    if (!peerId) {
+      throw appError_('invalid_peer_id', 'peerId is required when sessions are enforced');
+    }
+    requireSessionForPeer_(data, 'peers', peerId);
+    touchPeer_(peerId);
+  } else if (peerId) {
     touchPeer_(peerId);
   }
 
   cleanupOldPeers_();
   var peers = listActivePeers_();
-  var includeMeta = !!data.includeMeta;
+  var includeMeta = toBoolean_(data.includeMeta, false);
 
   return {
     peers: includeMeta
@@ -219,20 +256,34 @@ function isAuthorized_(payload, endpoint) {
     return true;
   }
 
-  var configuredSecret = PROPERTIES.getProperty('MESHNET_SHARED_SECRET');
+  var configuredSecret = getSharedSecret_();
   if (!configuredSecret) {
     // Open mode if no shared secret configured.
     return true;
   }
 
-  var incoming = '';
-  if (payload.auth && typeof payload.auth.secret === 'string') {
-    incoming = payload.auth.secret;
-  } else if (typeof payload.secret === 'string') {
-    incoming = payload.secret;
+  var incoming = readIncomingSecret_(payload);
+  if (incoming && secureEquals_(incoming, configuredSecret)) {
+    return true;
   }
 
-  return incoming === configuredSecret;
+  // When session mode is active, allow request through auth gate and
+  // enforce identity in endpoint handlers using session tokens.
+  if (isSessionEnforced_() && endpoint !== 'register') {
+    return true;
+  }
+
+  return false;
+}
+
+function readIncomingSecret_(payload) {
+  if (payload.auth && typeof payload.auth.secret === 'string') {
+    return payload.auth.secret.trim();
+  }
+  if (typeof payload.secret === 'string') {
+    return payload.secret.trim();
+  }
+  return '';
 }
 
 function resolveEndpoint_(e, payload) {
@@ -299,6 +350,298 @@ function isMutationEndpoint_(endpoint) {
          endpoint === 'peers';
 }
 
+function isSessionEnforced_() {
+  var override = PROPERTIES.getProperty('MESHNET_ENFORCE_SESSIONS');
+  if (override !== null && override !== undefined && String(override).trim() !== '') {
+    return toBoolean_(override, false);
+  }
+  return hasSharedSecret_();
+}
+
+function isRegisterHandshakeEnforced_() {
+  var override = PROPERTIES.getProperty('MESHNET_REQUIRE_REGISTER_HANDSHAKE');
+  if (override !== null && override !== undefined && String(override).trim() !== '') {
+    return toBoolean_(override, false);
+  }
+  return isSessionEnforced_();
+}
+
+function hasSharedSecret_() {
+  return !!getSharedSecret_();
+}
+
+function getSharedSecret_() {
+  var raw = PROPERTIES.getProperty('MESHNET_SHARED_SECRET');
+  if (typeof raw !== 'string') return '';
+  return raw.trim();
+}
+
+// -----------------------------------------------------------------------------
+// Session + Register Handshake
+// -----------------------------------------------------------------------------
+
+function buildRegisterContext_(data, peerId, strictHandshake) {
+  if (strictHandshake) {
+    return verifyRegisterHandshake_(data, peerId);
+  }
+
+  return {
+    bootId: normalizeBootId_(data.bootId) || Utilities.getUuid(),
+    codeHash: normalizeSha256_(data.codeHash || data.sha256 || '') || '',
+    timestamp: parseEpochMs_(data.ts || data.timestamp) || Date.now(),
+    nonce: normalizeTokenPart_(data.nonce, SETTINGS.MAX_NONCE_LEN) || ''
+  };
+}
+
+function verifyRegisterHandshake_(data, peerId) {
+  var sharedSecret = getSharedSecret_();
+  if (!sharedSecret) {
+    throw appError_(
+      'handshake_unavailable',
+      'Handshake enforcement requires MESHNET_SHARED_SECRET'
+    );
+  }
+
+  var bootId = requiredBootId_(data.bootId);
+  var codeHash = requiredSha256_(data.codeHash || data.sha256 || data.hash, 'codeHash');
+  enforceCodeHashPolicy_(codeHash);
+
+  var timestamp = parseEpochMs_(data.ts || data.timestamp);
+  if (!timestamp) {
+    throw appError_('invalid_timestamp', 'Missing or invalid timestamp (ts)');
+  }
+
+  var now = Date.now();
+  var maxSkew = resolveAllowedSkewMs_();
+  if (Math.abs(now - timestamp) > maxSkew) {
+    throw appError_('stale_timestamp', 'Timestamp outside allowed clock skew');
+  }
+
+  var nonce = requiredNonce_(data.nonce);
+  claimRegisterNonce_(peerId, nonce);
+
+  var signature = requiredSignature_(data);
+  var signingPayload = buildRegisterSigningPayload_(peerId, bootId, codeHash, timestamp, nonce);
+  if (!verifyHmacSignature_(signingPayload, signature, sharedSecret)) {
+    throw appError_('invalid_signature', 'Signature verification failed');
+  }
+
+  return {
+    bootId: bootId,
+    codeHash: codeHash,
+    timestamp: timestamp,
+    nonce: nonce
+  };
+}
+
+function buildRegisterSigningPayload_(peerId, bootId, codeHash, timestamp, nonce) {
+  return [
+    peerId,
+    bootId,
+    codeHash,
+    String(timestamp),
+    nonce
+  ].join('|');
+}
+
+function enforceCodeHashPolicy_(codeHash) {
+  var allowlist = getCodeHashAllowlist_();
+  if (allowlist.length === 0) {
+    return;
+  }
+  if (allowlist.indexOf(codeHash) === -1) {
+    throw appError_('code_hash_not_allowed', 'Unapproved codeHash');
+  }
+}
+
+function getCodeHashAllowlist_() {
+  var raw = PROPERTIES.getProperty('MESHNET_CODEHASH_ALLOWLIST');
+  if (!raw || typeof raw !== 'string') return [];
+
+  var seen = {};
+  var hashes = [];
+  raw.split(/[\s,;]+/).forEach(function (part) {
+    var normalized = normalizeSha256_(part);
+    if (normalized && !seen[normalized]) {
+      seen[normalized] = true;
+      hashes.push(normalized);
+    }
+  });
+  return hashes;
+}
+
+function resolveSessionTtlSec_() {
+  return resolveNumberProperty_(
+    'MESHNET_SESSION_TTL_SEC',
+    SETTINGS.DEFAULT_SESSION_TTL_SEC,
+    60,
+    24 * 60 * 60
+  );
+}
+
+function resolveNonceTtlSec_() {
+  return resolveNumberProperty_(
+    'MESHNET_NONCE_TTL_SEC',
+    SETTINGS.DEFAULT_NONCE_TTL_SEC,
+    30,
+    24 * 60 * 60
+  );
+}
+
+function resolveAllowedSkewMs_() {
+  return resolveNumberProperty_(
+    'MESHNET_TIMESTAMP_SKEW_MS',
+    SETTINGS.DEFAULT_ALLOWED_SKEW_MS,
+    5000,
+    24 * 60 * 60 * 1000
+  );
+}
+
+function resolveNumberProperty_(name, fallback, minValue, maxValue) {
+  var raw = PROPERTIES.getProperty(name);
+  var value = Number(raw);
+  if (!isFinite(value) || value <= 0) {
+    value = fallback;
+  }
+  value = Math.floor(value);
+  if (value < minValue) value = minValue;
+  if (value > maxValue) value = maxValue;
+  return value;
+}
+
+function claimRegisterNonce_(peerId, nonce) {
+  var key = nonceKey_(peerId, nonce);
+  if (CACHE.get(key)) {
+    throw appError_('replay_nonce', 'Nonce already used');
+  }
+  CACHE.put(key, '1', resolveNonceTtlSec_());
+}
+
+function issueSession_(peerId, bootId, codeHash) {
+  var now = Date.now();
+  var ttlSec = resolveSessionTtlSec_();
+  var token = generateSessionToken_(peerId, bootId, now);
+  var session = {
+    token: token,
+    peerId: peerId,
+    bootId: bootId,
+    codeHash: codeHash || '',
+    issuedAt: now,
+    expiresAt: now + ttlSec * 1000,
+    ttlSec: ttlSec
+  };
+
+  CACHE.put(sessionKey_(token), JSON.stringify(session), ttlSec);
+  PROPERTIES.setProperty(peerSessionKey_(peerId), token);
+  return session;
+}
+
+function revokePeerSession_(peerId) {
+  var key = peerSessionKey_(peerId);
+  var token = PROPERTIES.getProperty(key);
+  if (token) {
+    CACHE.remove(sessionKey_(token));
+  }
+  PROPERTIES.deleteProperty(key);
+}
+
+function readSessionToken_(payload) {
+  if (typeof payload.sessionToken === 'string' && payload.sessionToken.trim()) {
+    return payload.sessionToken.trim();
+  }
+  if (typeof payload.session === 'string' && payload.session.trim()) {
+    return payload.session.trim();
+  }
+  if (payload.auth && typeof payload.auth.sessionToken === 'string' && payload.auth.sessionToken.trim()) {
+    return payload.auth.sessionToken.trim();
+  }
+  return '';
+}
+
+function requireSessionForPeer_(payload, endpoint, peerId) {
+  if (!isSessionEnforced_()) {
+    return null;
+  }
+
+  var token = readSessionToken_(payload);
+  if (!token) {
+    throw appError_('unauthorized', 'Missing sessionToken for endpoint: ' + endpoint);
+  }
+
+  var session = getSession_(token);
+  if (!session) {
+    throw appError_('unauthorized', 'Invalid or expired sessionToken');
+  }
+
+  if (session.peerId !== peerId) {
+    throw appError_('session_peer_mismatch', 'sessionToken does not match peerId');
+  }
+
+  if (Date.now() >= session.expiresAt) {
+    CACHE.remove(sessionKey_(token));
+    throw appError_('session_expired', 'sessionToken expired');
+  }
+
+  var current = PROPERTIES.getProperty(peerSessionKey_(peerId));
+  if (current && !secureEquals_(current, token)) {
+    throw appError_('session_revoked', 'sessionToken was replaced by a newer registration');
+  }
+
+  return session;
+}
+
+function getSession_(token) {
+  var raw = CACHE.get(sessionKey_(token));
+  if (!raw) return null;
+  try {
+    var session = JSON.parse(raw);
+    if (!session || typeof session !== 'object') return null;
+    return session;
+  } catch (err) {
+    return null;
+  }
+}
+
+function generateSessionToken_(peerId, bootId, nowMs) {
+  var material = [
+    Utilities.getUuid(),
+    Utilities.getUuid(),
+    peerId,
+    bootId,
+    String(nowMs),
+    String(Math.random())
+  ].join('|');
+
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, material);
+  return trimBase64Padding_(Utilities.base64EncodeWebSafe(digest));
+}
+
+function verifyHmacSignature_(message, incomingSig, sharedSecret) {
+  var normalizedIncoming = normalizeSignatureText_(incomingSig);
+  if (!normalizedIncoming) return false;
+
+  var bytes = Utilities.computeHmacSha256Signature(message, sharedSecret);
+  var expectedHex = bytesToHex_(bytes);
+  var expectedB64 = trimBase64Padding_(Utilities.base64Encode(bytes));
+  var expectedB64Web = trimBase64Padding_(Utilities.base64EncodeWebSafe(bytes));
+
+  var incomingNoPad = trimBase64Padding_(normalizedIncoming);
+  var incomingHex = normalizedIncoming.toLowerCase();
+
+  return secureEquals_(incomingHex, expectedHex) ||
+         secureEquals_(incomingNoPad, expectedB64) ||
+         secureEquals_(incomingNoPad, expectedB64Web);
+}
+
+function normalizeSignatureText_(value) {
+  if (typeof value !== 'string') return '';
+  return value
+    .trim()
+    .replace(/^hmac-sha256[:=]/i, '')
+    .replace(/^sha256[:=]/i, '')
+    .replace(/\s+/g, '');
+}
+
 // -----------------------------------------------------------------------------
 // Peer / Queue Storage
 // -----------------------------------------------------------------------------
@@ -355,6 +698,7 @@ function cleanupOldPeers_() {
 }
 
 function deletePeer_(peerId) {
+  revokePeerSession_(peerId);
   PROPERTIES.deleteProperty(peerKey_(peerId));
   CACHE.remove(queueKey_(peerId));
 }
@@ -469,6 +813,93 @@ function requiredString_(value, fieldName, maxLen) {
   return out;
 }
 
+function requiredBootId_(value) {
+  var bootId = normalizeBootId_(value);
+  if (!bootId) {
+    throw appError_('invalid_boot_id', 'Missing or invalid bootId');
+  }
+  return bootId;
+}
+
+function normalizeBootId_(value) {
+  if (typeof value !== 'string') return '';
+  var bootId = value.trim();
+  if (!bootId || bootId.length > SETTINGS.MAX_BOOT_ID_LEN) return '';
+  if (!/^[A-Za-z0-9._:-]+$/.test(bootId)) return '';
+  return bootId;
+}
+
+function requiredNonce_(value) {
+  var nonce = normalizeTokenPart_(value, SETTINGS.MAX_NONCE_LEN);
+  if (!nonce) {
+    throw appError_('invalid_nonce', 'Missing or invalid nonce');
+  }
+  return nonce;
+}
+
+function normalizeTokenPart_(value, maxLen) {
+  if (typeof value !== 'string') return '';
+  var out = value.trim();
+  if (!out || out.length > maxLen) return '';
+  if (!/^[A-Za-z0-9._:-]+$/.test(out)) return '';
+  return out;
+}
+
+function requiredSha256_(value, fieldName) {
+  var hash = normalizeSha256_(value);
+  if (!hash) {
+    throw appError_('invalid_' + fieldName, 'Missing or invalid ' + fieldName + ' (expected SHA-256 hex)');
+  }
+  return hash;
+}
+
+function normalizeSha256_(value) {
+  if (typeof value !== 'string') return '';
+  var out = value.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(out)) return '';
+  return out;
+}
+
+function requiredSignature_(payload) {
+  var sig = '';
+
+  if (typeof payload.sig === 'string') {
+    sig = payload.sig;
+  } else if (typeof payload.signature === 'string') {
+    sig = payload.signature;
+  } else if (payload.auth && typeof payload.auth.sig === 'string') {
+    sig = payload.auth.sig;
+  } else if (payload.auth && typeof payload.auth.signature === 'string') {
+    sig = payload.auth.signature;
+  }
+
+  sig = String(sig || '').trim();
+  if (!sig) {
+    throw appError_('invalid_signature', 'Missing signature');
+  }
+  return sig;
+}
+
+function parseEpochMs_(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  var n = Number(value);
+  if (!isFinite(n) || n <= 0) return 0;
+  if (n < 100000000000) { // probably seconds
+    n = n * 1000;
+  }
+  return Math.floor(n);
+}
+
+function toBoolean_(value, fallback) {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'boolean') return value;
+  var text = String(value).trim().toLowerCase();
+  if (!text) return fallback;
+  if (text === '1' || text === 'true' || text === 'yes' || text === 'on') return true;
+  if (text === '0' || text === 'false' || text === 'no' || text === 'off') return false;
+  return fallback;
+}
+
 function asObject_(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return value;
@@ -497,12 +928,56 @@ function dedupeStrings_(arr) {
   return out;
 }
 
+function bytesToHex_(bytes) {
+  var hex = '';
+  for (var i = 0; i < bytes.length; i++) {
+    var value = bytes[i];
+    if (value < 0) value += 256;
+    var part = value.toString(16);
+    if (part.length < 2) part = '0' + part;
+    hex += part;
+  }
+  return hex;
+}
+
+function trimBase64Padding_(value) {
+  return String(value || '').replace(/=+$/, '');
+}
+
+function secureEquals_(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  var lenA = a.length;
+  var lenB = b.length;
+  var maxLen = Math.max(lenA, lenB);
+  var diff = lenA ^ lenB;
+
+  for (var i = 0; i < maxLen; i++) {
+    var ca = i < lenA ? a.charCodeAt(i) : 0;
+    var cb = i < lenB ? b.charCodeAt(i) : 0;
+    diff |= (ca ^ cb);
+  }
+
+  return diff === 0;
+}
+
 function peerKey_(peerId) {
   return 'peer_' + peerId;
 }
 
 function queueKey_(peerId) {
   return 'messages_' + peerId;
+}
+
+function sessionKey_(token) {
+  return 'session_' + token;
+}
+
+function peerSessionKey_(peerId) {
+  return 'peer_session_' + peerId;
+}
+
+function nonceKey_(peerId, nonce) {
+  return 'nonce_' + peerId + '_' + nonce;
 }
 
 function withScriptLock_(fn) {
