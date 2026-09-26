@@ -5,7 +5,9 @@ __pycache__/
 *.pyd
 
 # Local build outputs
-external-build/
+external-build/*
+!external-build/canvas-x/
+!external-build/canvas-x/**
 supernaut-cpp/build/
 supernaut-cpp/bin/
 supernaut-cpp/__pycache__/
@@ -14,6 +16,13 @@ supernaut-cpp/__pycache__/
 *.log
 *.tmp
 *.cache
+*.bak
+
+# Runtime-generated secrets/proofs
+bin/io/keys/
+bin/app/io/keys/
+bin/io/proof/
+bin/app/io/proof/
 
 # OS/editor artifacts
 .DS_Store

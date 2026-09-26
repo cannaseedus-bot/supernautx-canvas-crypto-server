@@ -1,0 +1,39 @@
+﻿{
+    "schema":  "canvas.runtime.app.manifest.v1",
+    "name":  "Canvas.X JSON App",
+    "config":  "Debug",
+    "generated_at_utc":  "2026-09-25T22:43:16.5884639Z",
+    "entry":  "bin/canvas-x.exe",
+    "programs":  [
+                     "canvas-x.exe",
+                     "gpu-detector-test.exe",
+                     "matrix.exe",
+                     "phase-7-12-6-tests.exe",
+                     "phase-7-12-7-crypto-test.exe",
+                     "phase-7-12-7-hardening-test.exe",
+                     "phase-7-12-7-quick-test.exe",
+                     "phase-7-12-7-stress-test.exe",
+                     "phase-7-14-matmul-test.exe",
+                     "phase-7-14-part1-cpu-matmul.exe",
+                     "phase-7-14-part2-distributed-moe.exe",
+                     "phase-7-14-simple-gpu-test.exe",
+                     "phase-7-20-d2d-test.exe",
+                     "phase-7-20-editor-highlighter-test.exe",
+                     "phase-7-20-file-system-watcher-test.exe",
+                     "phase-7-20-json-workflow-test.exe",
+                     "phase-7-20-terminal-renderer-test.exe",
+                     "phase-7-20-timeline-persistence-test.exe",
+                     "phase-7-21-b2-http-client-test.exe",
+                     "phase-7-21-b3-brain-services-test.exe",
+                     "phase-7-21-b4-runtime-gpu-test.exe",
+                     "phase-7-21-b6-integration-test.exe"
+                 ],
+    "assets":  {
+                   "temp":  [
+                                "canvas-runtime-bootstrap.json",
+                                "GUIX-AI-CHAT-BOX.html",
+                                "mx2lm-os-v17.html"
+                            ],
+                   "bootstrap":  "temp/canvas-runtime-bootstrap.json"
+               }
+}

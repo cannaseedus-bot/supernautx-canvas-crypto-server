@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ASX BLOCKS — Glass Matrix OS</title>
+  <style>
+    :root {
+      /* Enhanced Color System */
+      --bg-primary: #04070a;
+      --bg-secondary: #0a0f14;
+      --bg-tertiary: #101820;
+      
+      --glass-primary: rgba(255, 255, 255, 0.08);
+      --glass-secondary: rgba(255, 255, 255, 0.06);
+      --glass-tertiary: rgba(255, 255, 255, 0.04);
+      
+      --stroke-primary: rgba(255, 255, 255, 0.14);
+      --stroke-secondary: rgba(255, 255, 255, 0.10);
+      --stroke-accent: rgba(97, 231, 255, 0.4);
+      
+      --text-primary: #e6f6ff;
+      --text-secondary: #a7c2cf;
+      --text-muted: #7a99a8;
+      
+      --accent-primary: #61e7ff;
+      --accent-secondary: #00ffa3;
+      --accent-warning: #ffd166;
+      --accent-danger: #ff3366;
+      --accent-success: #00d9a6;
+      
+      --gradient-primary: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+      
+      /* Enhanced Shadows */
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.4);
+      --shadow-glow: 0 0 40px rgba(97, 231, 255, 0.15);
+      
+      /* Enhanced Blur Effects */
+      --blur-sm: blur(8px);
+      --blur-md: blur(16px);
+      --blur-lg: blur(24px);
+      
+      /* Typography */
+      --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      
+      /* Spacing */
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --space-2xl: 48px;
+      
+      /* Border Radius */
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+      --radius-2xl: 24px;
+      
+      /* Animations */
+      --transition-fast: 0.15s ease;
+      --transition-normal: 0.3s ease;
+      --transition-slow: 0.5s ease;
+    }
+
+    /* Reset & Base Styles */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-primary);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* Enhanced Matrix Background */
+    #matrix {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      filter: contrast(1.2) saturate(1.3) brightness(0.9);
+      background: 
+        radial-gradient(circle at 20% 80%, rgba(0, 255, 196, 0.15), transparent 60%),
+        radial-gradient(circle at 80% 20%, rgba(97, 231, 255, 0.1), transparent 60%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 80px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 1px, transparent 1px 80px);
+      background-size: cover;
+    }
+
+    /* App Container */
+    .app {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(1200px, 92vw);
+      margin: 0 auto;
+      padding: 0 var(--space-md);
+    }
+
+    /* Enhanced Navigation */
+    .topnav {
+      position: sticky;
+      top: var(--space-md);
+      z-index: 100;
+      margin-bottom: var(--space-xl);
+    }
+
+    .nav-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      border-radius: var(--radius-xl);
+      background: var(--glass-primary);
+      border: 1px solid var(--stroke-primary);
+      backdrop-filter: var(--blur-lg);
+      box-shadow: var(--shadow-md);
+      transition: var(--transition-normal);
+    }
+
+    .nav-wrap:hover {
+      box-shadow: var(--shadow-lg), var(--shadow-glow);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-lg);
+      background: var(--gradient-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      box-shadow: var(--shadow-glow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .logo::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { transform: translateX(-100%); }
+      50% { transform: translateX(100%); }
+    }
+
+    .brand h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+    }
+
+    .nav a {
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      text-decoration: none;
+      border: 1px solid transparent;
+      font-weight: 500;
+      font-size: 14px;
+      transition: var(--transition-fast);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav a::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gradient-primary);
+      opacity: 0;
+      transition: var(--transition-fast);
+    }
+
+    .nav a:hover {
+      color: var(--text-primary);
+      border-color: var(--stroke-accent);
+    }
+
+    .nav a:hover::before {
+      opacity: 0.1;
+    }
+
+    .nav a[aria-current="page"] {
+      color: var(--text-primary);
+      background: var(--glass-secondary);
+      border-color: var(--stroke-accent);
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .badge {
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--stroke-primary);
+      background: var(--glass-secondary);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* Enhanced Buttons */
+    .btn {
+      appearance: none;
+      border: 1px solid var(--stroke-primary);
+      background: var(--glass-primary);
+      color: var(--text-primary);
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      backdrop-filter: var(--blur-sm);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      transition: var(--transition-fast);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gradient-primary);
+      opacity: 0;
+      transition: var(--transition-fast);
+    }
+
+    .btn:hover {
+      border-color: var(--stroke-accent);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn:hover::before {
+      opacity: 0.1;
+    }
+
+    .btn.primary {
+      border-color: transparent;
+      background: var(--gradient-primary);
+      color: var(--bg-primary);
+      font-weight: 600;
+    }
+
+    .btn.primary:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-glow);
+    }
+
+    /* Enhanced Cards */
+    .card {
+      border: 1px solid var(--stroke-primary);
+      border-radius: var(--radius-xl);
+      background: var(--glass-primary);
+      backdrop-filter: var(--blur-lg);
+      box-shadow: var(--shadow-md);
+      transition: var(--transition-normal);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gradient-glass);
+      opacity: 0;
+      transition: var(--transition-normal);
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg), var(--shadow-glow);
+    }
+
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    .card .pad {
+      padding: var(--space-xl);
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Hero Section */
+    .hero {
+      margin: var(--space-2xl) auto;
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: var(--space-xl);
+      align-items: start;
+    }
+
+    .kicker {
+      color: var(--accent-primary);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: var(--space-md);
+    }
+
+    .hero h2 {
+      font-size: clamp(32px, 5vw, 56px);
+      font-weight: 800;
+      line-height: 1.1;
+      margin: 0 0 var(--space-lg);
+      background: linear-gradient(135deg, var(--text-primary), var(--accent-primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      color: var(--text-secondary);
+      font-size: 18px;
+      margin-bottom: var(--space-xl);
+      line-height: 1.6;
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-md);
+    }
+
+    .callout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-md);
+    }
+
+    .mini {
+      padding: var(--space-lg);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--stroke-secondary);
+      background: var(--glass-secondary);
+      transition: var(--transition-normal);
+    }
+
+    .mini:hover {
+      border-color: var(--stroke-accent);
+      transform: translateY(-2px);
+    }
+
+    .rowlabel {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: var(--space-sm);
+    }
+
+    /* Enhanced Grid Sections */
+    .section {
+      margin: var(--space-2xl) auto;
+    }
+
+    .section h3 {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 var(--space-xl);
+      color: var(--text-primary);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: var(--space-lg);
+    }
+
+    /* Enhanced Tiles */
+    .tile {
+      border: 1px solid var(--stroke-primary);
+      border-radius: var(--radius-lg);
+      background: var(--glass-secondary);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: var(--transition-normal);
+      position: relative;
+    }
+
+    .tile::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gradient-glass);
+      opacity: 0;
+      transition: var(--transition-normal);
+    }
+
+    .tile:hover {
+      transform: translateY(-4px);
+      border-color: var(--stroke-accent);
+      box-shadow: var(--shadow-md), var(--shadow-glow);
+    }
+
+    .tile:hover::before {
+      opacity: 1;
+    }
+
+    .tile .thumb {
+      aspect-ratio: 16/9;
+      background: 
+        radial-gradient(circle at 30% 10%, rgba(97,231,255,.2), transparent 50%),
+        linear-gradient(0deg, rgba(255,255,255,.08), rgba(255,255,255,0));
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tile .thumb::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    .tile .thumb .play {
+      position: absolute;
+      inset: auto auto var(--space-md) var(--space-md);
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--stroke-primary);
+      background: var(--glass-primary);
+      font-size: 12px;
+      font-weight: 600;
+      backdrop-filter: var(--blur-sm);
+      transition: var(--transition-fast);
+      z-index: 2;
+    }
+
+    .tile .thumb .play:hover {
+      background: var(--gradient-primary);
+      color: var(--bg-primary);
+      border-color: transparent;
+    }
+
+    .tile .meta {
+      padding: var(--space-lg);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: var(--space-md);
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .chip {
+      font-size: 12px;
+      padding: var(--space-sm) var(--space-md);
+      border-radius: 999px;
+      border: 1px solid var(--stroke-primary);
+      background: var(--glass-primary);
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Enhanced Layouts */
+    .cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+    }
+
+    .list {
+      display: grid;
+      gap: var(--space-md);
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--stroke-primary);
+      background: var(--glass-secondary);
+      transition: var(--transition-fast);
+    }
+
+    .row:hover {
+      border-color: var(--stroke-accent);
+      background: var(--glass-primary);
+    }
+
+    /* Enhanced Footer */
+    footer {
+      margin: var(--space-2xl) 0 calc(92px + var(--space-xl));
+      color: var(--text-muted);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: var(--space-xl);
+    }
+
+    /* Enhanced Dock */
+    .dock {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: var(--space-lg);
+      z-index: 100;
+      display: flex;
+      gap: var(--space-sm);
+      padding: var(--space-md);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--stroke-primary);
+      background: var(--glass-primary);
+      backdrop-filter: var(--blur-lg);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .dock .ico {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-lg);
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--stroke-primary);
+      background: var(--glass-secondary);
+      font-size: 20px;
+      transition: var(--transition-fast);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dock .ico::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gradient-primary);
+      opacity: 0;
+      transition: var(--transition-fast);
+    }
+
+    .dock .ico:hover {
+      transform: translateY(-4px);
+      border-color: var(--stroke-accent);
+      box-shadow: var(--shadow-sm), var(--shadow-glow);
+    }
+
+    .dock .ico:hover::before {
+      opacity: 0.1;
+    }
+
+    /* Chat Interface Styles */
+    .chat-interface {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(900px, 90vw);
+      height: min(700px, 85vh);
+      z-index: 1000;
+      display: none;
+      border-radius: var(--radius-2xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg), 0 0 60px rgba(97, 231, 255, 0.2);
+      border: 1px solid var(--stroke-accent);
+    }
+
+    .chat-interface.active {
+      display: flex;
+    }
+
+    .chat-sidebar {
+      width: 280px;
+      background: var(--glass-primary);
+      border-right: 1px solid var(--stroke-primary);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      backdrop-filter: var(--blur-lg);
+    }
+
+    .chat-logo {
+      padding: var(--space-lg);
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--accent-primary);
+      border-bottom: 1px solid var(--stroke-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .chat-nav-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--stroke-primary);
+    }
+
+    .chat-nav-tab {
+      flex: 1;
+      padding: var(--space-md);
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition-fast);
+      border-bottom: 2px solid transparent;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .chat-nav-tab.active {
+      border-bottom: 2px solid var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    .chat-tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--space-md);
+    }
+
+    .chat-tab-pane {
+      display: none;
+    }
+
+    .chat-tab-pane.active {
+      display: block;
+    }
+
+    .model-list, .file-list {
+      list-style: none;
+    }
+
+    .model-item, .file-item {
+      padding: var(--space-md);
+      margin-bottom: var(--space-sm);
+      background: var(--glass-secondary);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: var(--transition-fast);
+      border: 1px solid transparent;
+    }
+
+    .model-item:hover, .file-item:hover {
+      background: var(--glass-primary);
+      border-color: var(--stroke-accent);
+    }
+
+    .model-item.active, .file-item.active {
+      border-left: 3px solid var(--accent-primary);
+    }
+
+    .model-status {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--text-muted);
+    }
+
+    .model-status.online {
+      background-color: var(--accent-success);
+    }
+
+    .chat-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--glass-primary);
+      backdrop-filter: var(--blur-lg);
+    }
+
+    .chat-header {
+      padding: var(--space-lg) var(--space-xl);
+      border-bottom: 1px solid var(--stroke-primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .model-info {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .model-name {
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--space-xl);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-lg);
+    }
+
+    .message {
+      max-width: 80%;
+      padding: var(--space-lg);
+      border-radius: var(--radius-lg);
+      line-height: 1.5;
+    }
+
+    .user-message {
+      align-self: flex-end;
+      background: var(--gradient-primary);
+      color: var(--bg-primary);
+      border-bottom-right-radius: var(--radius-sm);
+    }
+
+    .ai-message {
+      align-self: flex-start;
+      background: var(--glass-secondary);
+      border-bottom-left-radius: var(--radius-sm);
+    }
+
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: var(--space-sm);
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .chat-input-container {
+      padding: var(--space-xl);
+      border-top: 1px solid var(--stroke-primary);
+    }
+
+    .chat-input-wrapper {
+      display: flex;
+      gap: var(--space-md);
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: var(--space-lg);
+      background: var(--glass-secondary);
+      border: 1px solid var(--stroke-primary);
+      border-radius: var(--radius-lg);
+      color: var(--text-primary);
+      resize: none;
+      height: 60px;
+      font-size: 16px;
+      font-family: inherit;
+    }
+
+    .send-btn {
+      background: var(--gradient-primary);
+      color: var(--bg-primary);
+      border: none;
+      border-radius: var(--radius-lg);
+      width: 60px;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+
+    .input-actions {
+      display: flex;
+      gap: var(--space-md);
+      margin-top: var(--space-md);
+    }
+
+    .action-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-sm);
+      transition: var(--transition-fast);
+    }
+
+    .action-btn:hover {
+      color: var(--accent-primary);
+      background: var(--glass-secondary);
+    }
+
+    .close-chat {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 24px;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition-fast);
+    }
+
+    .close-chat:hover {
+      background: var(--glass-secondary);
+      color: var(--text-primary);
+    }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--glass-primary);
+      border-radius: var(--radius-xl);
+      width: 500px;
+      max-width: 90%;
+      padding: var(--space-xl);
+      border: 1px solid var(--stroke-primary);
+      box-shadow: var(--shadow-lg), var(--shadow-glow);
+      backdrop-filter: var(--blur-lg);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-lg);
+      padding-bottom: var(--space-md);
+      border-bottom: 1px solid var(--stroke-primary);
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .close-modal {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .github-url-input {
+      width: 100%;
+      padding: var(--space-md);
+      background: var(--glass-secondary);
+      border: 1px solid var(--stroke-primary);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      margin-bottom: var(--space-md);
+    }
+
+    .file-preview {
+      background: var(--glass-secondary);
+      border-radius: var(--radius-md);
+      padding: var(--space-lg);
+      margin-top: var(--space-md);
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+      
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      
+      .cols {
+        grid-template-columns: 1fr;
+      }
+      
+      .chat-interface {
+        width: 95vw;
+        height: 90vh;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .nav-wrap {
+        flex-direction: column;
+        gap: var(--space-lg);
+      }
+      
+      .nav {
+        justify-content: center;
+      }
+      
+      .status {
+        justify-content: center;
+      }
+      
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .footer-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-lg);
+      }
+      
+      .dock {
+        padding: var(--space-sm);
+      }
+      
+      .dock .ico {
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+      }
+      
+      .chat-interface {
+        flex-direction: column;
+      }
+      
+      .chat-sidebar {
+        width: 100%;
+        height: 200px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 0 var(--space-sm);
+      }
+      
+      .hero h2 {
+        font-size: 28px;
+      }
+      
+      .cta-row {
+        flex-direction: column;
+      }
+      
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+      
+      .chat-messages {
+        padding: var(--space-md);
+      }
+      
+      .message {
+        max-width: 95%;
+      }
+    }
+
+    /* Loading Animation */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .card, .tile, .mini {
+      animation: fadeInUp 0.6s ease forwards;
+    }
+
+    .card:nth-child(1) { animation-delay: 0.1s; }
+    .card:nth-child(2) { animation-delay: 0.2s; }
+    .tile:nth-child(1) { animation-delay: 0.3s; }
+    .tile:nth-child(2) { animation-delay: 0.4s; }
+    .tile:nth-child(3) { animation-delay: 0.5s; }
+  </style>
+</head>
+<body>
+  <canvas id="matrix" aria-hidden="true"></canvas>
+
+  <div class="app">
+    <header class="topnav container">
+      <div class="nav-wrap">
+        <div class="brand">
+          <div class="logo">ASX</div>
+          <h1>ASX BLOCKS</h1>
+        </div>
+        <nav class="nav" aria-label="Primary">
+          <a href="#/home" aria-current="page">HOME</a>
+          <a href="#/arcade">ARCADE</a>
+          <a href="#/builder">BUILDER</a>
+          <a href="#/wallet">WALLET</a>
+          <a href="#/market">MARKET</a>
+          <a href="#/docs">DOCS</a>
+        </nav>
+        <div class="status">
+          <span class="badge" id="badgeTier">Tier: Bronze</span>
+          <button class="btn" id="connectWallet">Connect Wallet</button>
+          <button class="btn primary" id="openAuth">Sign In</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Hero Section -->
+      <section class="hero" id="home">
+        <article class="card">
+          <div class="pad">
+            <div class="kicker">Glass Matrix OS</div>
+            <h2>Build. Play. Own.</h2>
+            <p>ASX BLOCKS is a unified platform for creating, playing, and trading in the decentralized gaming ecosystem. Experience the future of web3 gaming with our glass-morphic interface.</p>
+            <div class="cta-row">
+              <a class="btn primary" href="#/builder">Launch Builder</a>
+              <a class="btn" href="#/arcade">Explore Games</a>
+              <a class="btn" href="#/market">Visit Market</a>
+            </div>
+          </div>
+        </article>
+        
+        <aside class="callout">
+          <div class="mini">
+            <div class="rowlabel">Real-time Stats</div>
+            <p>Track your progress, earnings, and achievements across the entire ASX ecosystem.</p>
+          </div>
+          <div class="mini">
+            <div class="rowlabel">AI Assistant</div>
+            <p>Get help with coding, game development, or platform questions from our integrated AI assistant.</p>
+            <button class="btn" id="openChat" style="margin-top: var(--space-md);">Open Chat</button>
+          </div>
+        </aside>
+      </section>
+
+      <!-- Arcade Section -->
+      <section class="section" id="arcade">
+        <h3>Featured Games</h3>
+        <div class="grid" id="arcadeGrid">
+          <!-- Games will be populated by JavaScript -->
+        </div>
+      </section>
+
+      <!-- Builder Section -->
+      <section class="section" id="builder">
+        <h3>Recent Creations</h3>
+        <div class="grid" id="builderGrid">
+          <!-- Builder items will be populated by JavaScript -->
+        </div>
+      </section>
+
+      <!-- Wallet Section -->
+      <section class="section" id="wallet">
+        <h3>Wallet & Assets</h3>
+        <div class="cols">
+          <div class="card">
+            <div class="pad">
+              <div class="list">
+                <div class="row">
+                  <span>ASX Balance</span>
+                  <span class="chip" id="asxBal">0.00</span>
+                </div>
+                <div class="row">
+                  <span>Staking Rewards</span>
+                  <button class="btn" id="stakeBtn">Stake Now</button>
+                </div>
+                <div class="row">
+                  <span>NFT Collection</span>
+                  <span class="chip">12 Items</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card">
+            <div class="pad">
+              <div class="rowlabel">Recent Activity</div>
+              <div class="list" id="txList">
+                <!-- Transactions will be populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Marketplace Section -->
+      <section class="section" id="market">
+        <h3>Marketplace</h3>
+        <div class="grid" id="marketGrid">
+          <!-- Market items will be populated by JavaScript -->
+        </div>
+      </section>
+
+      <footer class="container">
+        <div class="footer-grid">
+          <div>
+            <div class="kicker">ASX Ecosystem</div>
+            <p>Building the future of decentralized gaming and digital ownership through innovative technology and community-driven development.</p>
+          </div>
+          <div>
+            <div class="kicker">Resources</div>
+            <p>Documentation<br>API Reference<br>Developer Guides<br>Community Forum</p>
+          </div>
+          <div>
+            <div class="kicker">Connect</div>
+            <p>Twitter<br>Discord<br>GitHub<br>Telegram</p>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- App Dock -->
+  <div class="dock" role="toolbar" aria-label="App Dock">
+    <div class="ico" title="Chat" id="dockChat">💬</div>
+    <div class="ico" title="Builder">🧪</div>
+    <div class="ico" title="Market">🛍️</div>
+    <div class="ico" title="Wallet">💰</div>
+    <div class="ico" title="Settings">⚙️</div>
+  </div>
+
+  <!-- Chat Interface -->
+  <div class="chat-interface" id="chatInterface">
+    <div class="chat-sidebar">
+      <div class="chat-logo">
+        <span>⚡</span>
+        <span>NexusChat</span>
+      </div>
+      
+      <div class="chat-nav-tabs">
+        <div class="chat-nav-tab active" data-tab="models">Models</div>
+        <div class="chat-nav-tab" data-tab="files">Files</div>
+      </div>
+      
+      <div class="chat-tab-content">
+        <!-- Models Tab -->
+        <div class="chat-tab-pane active" id="models">
+          <button class="btn btn-primary" id="add-model-btn" style="width: 100%; margin-bottom: var(--space-md);">
+            <span>+</span>
+            <span>Add Model</span>
+          </button>
+          
+          <ul class="model-list">
+            <li class="model-item active">
+              <span>Local GPT-4</span>
+              <div class="model-status online"></div>
+            </li>
+            <li class="model-item">
+              <span>Claude API</span>
+              <div class="model-status"></div>
+            </li>
+            <li class="model-item">
+              <span>Llama 2 Local</span>
+              <div class="model-status online"></div>
+            </li>
+          </ul>
+        </div>
+        
+        <!-- Files Tab -->
+        <div class="chat-tab-pane" id="files">
+          <button class="btn" id="import-github-btn" style="width: 100%; margin-bottom: var(--space-md);">
+            <span>📥</span>
+            <span>Import from GitHub</span>
+          </button>
+          
+          <button class="btn" id="upload-file-btn" style="width: 100%; margin-bottom: var(--space-md);">
+            <span>📁</span>
+            <span>Upload File</span>
+          </button>
+          
+          <ul class="file-list">
+            <li class="file-item active">
+              <span>chat_interface.py</span>
+              <span>📄</span>
+            </li>
+            <li class="file-item">
+              <span>model_config.json</span>
+              <span>⚙️</span>
+            </li>
+            <li class="file-item">
+              <span>README.md</span>
+              <span>📝</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Main Chat Area -->
+    <div class="chat-main">
+      <div class="chat-header">
+        <div class="model-info">
+          <div class="model-status online"></div>
+          <div class="model-name">Local GPT-4</div>
+        </div>
+        <button class="close-chat" id="closeChat">&times;</button>
+      </div>
+      
+      <div class="chat-messages">
+        <div class="message ai-message">
+          <div class="message-header">
+            <span>NexusChat</span>
+            <span>10:24 AM</span>
+          </div>
+          <div class="message-content">
+            Hello! I'm your AI assistant integrated into ASX BLOCKS. I can help you with game development, smart contracts, or answer questions about the platform. How can I assist you today?
+          </div>
+        </div>
+        
+        <div class="message user-message">
+          <div class="message-header">
+            <span>You</span>
+            <span>10:25 AM</span>
+          </div>
+          <div class="message-content">
+            Can you help me optimize this smart contract for my game?
+          </div>
+        </div>
+        
+        <div class="message ai-message">
+          <div class="message-header">
+            <span>NexusChat</span>
+            <span>10:25 AM</span>
+          </div>
+          <div class="message-content">
+            Of course! Please share the contract code you'd like me to optimize. You can paste it directly, reference a file from your workspace, or import it from GitHub.
+          </div>
+        </div>
+      </div>
+      
+      <div class="chat-input-container">
+        <div class="chat-input-wrapper">
+          <textarea class="chat-input" placeholder="Type your message..."></textarea>
+          <button class="send-btn">➤</button>
+        </div>
+        <div class="input-actions">
+          <button class="action-btn">
+            <span>📎</span>
+            <span>Attach</span>
+          </button>
+          <button class="action-btn">
+            <span>🔍</span>
+            <span>Search Files</span>
+          </button>
+          <button class="action-btn">
+            <span>💾</span>
+            <span>Save Chat</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GitHub Import Modal -->
+  <div class="modal" id="github-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Import from GitHub</div>
+        <button class="close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="github-url-input" placeholder="Paste GitHub repository URL...">
+        <div class="input-group">
+          <label>File Type Filter</label>
+          <select>
+            <option>All Files</option>
+            <option>Python Files</option>
+            <option>JavaScript Files</option>
+            <option>Markdown Files</option>
+            <option>JSON Files</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width: 100%;">Import Repository</button>
+        
+        <div class="file-preview">
+          # File preview will appear here
+          # After entering a GitHub URL
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Model Modal -->
+  <div class="modal" id="model-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Add New Model</div>
+        <button class="close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group">
+          <label>Model Name</label>
+          <input type="text" placeholder="e.g., My Local GPT">
+        </div>
+        
+        <div class="input-group">
+          <label>Model Type</label>
+          <select>
+            <option>Local Model</option>
+            <option>API Endpoint</option>
+            <option>Hugging Face</option>
+            <option>Custom</option>
+          </select>
+        </div>
+        
+        <div class="input-group">
+          <label>Endpoint URL</label>
+          <input type="text" placeholder="http://localhost:8000/v1/chat/completions">
+        </div>
+        
+        <div class="input-group">
+          <label>API Key (if required)</label>
+          <input type="password" placeholder="sk-...">
+        </div>
+        
+        <button class="btn btn-primary" style="width: 100%;">Add Model</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Enhanced Matrix Background
+    const canvas = document.getElementById('matrix');
+    const ctx = canvas.getContext('2d');
+    
+    function resizeCanvas() {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      ctx.scale(dpr, dpr);
+    }
+    
+    function initMatrix() {
+      resizeCanvas();
+      const columns = Math.ceil(window.innerWidth / 20);
+      const drops = Array(columns).fill(0);
+      
+      function draw() {
+        ctx.fillStyle = 'rgba(4, 7, 10, 0.05)';
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        
+        ctx.fillStyle = '#61e7ff';
+        ctx.font = '14px "JetBrains Mono", monospace';
+        
+        for (let i = 0; i < drops.length; i++) {
+          const text = String.fromCharCode(0x30A0 + Math.random() * 96);
+          const x = i * 20;
+          const y = drops[i] * 20;
+          
+          ctx.fillText(text, x, y);
+          
+          if (y > window.innerHeight && Math.random() > 0.975) {
+            drops[i] = 0;
+          }
+          drops[i]++;
+        }
+      }
+      
+      setInterval(draw, 50);
+    }
+    
+    // Demo Data
+    const games = [
+      { name: 'Neon Runner', score: '12.4K', players: '1.2K' },
+      { name: 'Crypto Quest', score: '8.7K', players: '890' },
+      { name: 'Block Chain', score: '15.2K', players: '2.1K' },
+      { name: 'Defi Dash', score: '9.8K', players: '1.5K' }
+    ];
+    
+    const creations = [
+      { name: 'Space Explorer', forks: '24', likes: '156' },
+      { name: 'Pixel Art Maker', forks: '42', likes: '289' },
+      { name: 'Music Visualizer', forks: '18', likes: '134' },
+      { name: 'AR Filter Kit', forks: '31', likes: '207' }
+    ];
+    
+    const marketItems = [
+      { name: 'Rare Skin Pack', price: '4.2 ASX' },
+      { name: 'Builder Toolkit', price: '12.5 ASX' },
+      { name: 'Premium Assets', price: '8.7 ASX' },
+      { name: 'Game Template', price: '6.3 ASX' }
+    ];
+    
+    // Populate Sections
+    function populateSection(containerId, items, type) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = items.map(item => `
+        <div class="tile">
+          <div class="thumb">
+            <button class="play btn">${type === 'game' ? 'Play' : type === 'creation' ? 'Fork' : 'Buy'}</button>
+          </div>
+          <div class="meta">
+            <div>
+              <div>${item.name}</div>
+              <small style="color: var(--text-muted)">
+                ${type === 'game' ? `High Score: ${item.score}` : 
+                  type === 'creation' ? `Forks: ${item.forks}` : 
+                  `Price: ${item.price}`}
+              </small>
+            </div>
+            <span class="chip">
+              ${type === 'game' ? `${item.players} players` : 
+                type === 'creation' ? `${item.likes} likes` : 
+                'Available'}
+            </span>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    // Chat Interface Functionality
+    const chatInterface = document.getElementById('chatInterface');
+    const openChatBtn = document.getElementById('openChat');
+    const dockChatBtn = document.getElementById('dockChat');
+    const closeChatBtn = document.getElementById('closeChat');
+    
+    function openChat() {
+      chatInterface.classList.add('active');
+    }
+    
+    function closeChat() {
+      chatInterface.classList.remove('active');
+    }
+    
+    // Tab switching functionality
+    document.querySelectorAll('.chat-nav-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Remove active class from all tabs and panes
+        document.querySelectorAll('.chat-nav-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.chat-tab-pane').forEach(p => p.classList.remove('active'));
+        
+        // Add active class to clicked tab
+        tab.classList.add('active');
+        
+        // Show corresponding pane
+        const tabId = tab.getAttribute('data-tab');
+        document.getElementById(tabId).classList.add('active');
+      });
+    });
+    
+    // Model selection
+    document.querySelectorAll('.model-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.model-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        
+        // Update chat header with selected model
+        const modelName = item.querySelector('span').textContent;
+        document.querySelector('.model-name').textContent = modelName;
+      });
+    });
+    
+    // File selection
+    document.querySelectorAll('.file-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+      });
+    });
+    
+    // Modal controls
+    const githubModal = document.getElementById('github-modal');
+    const modelModal = document.getElementById('model-modal');
+    
+    document.getElementById('import-github-btn').addEventListener('click', () => {
+      githubModal.classList.add('active');
+    });
+    
+    document.getElementById('add-model-btn').addEventListener('click', () => {
+      modelModal.classList.add('active');
+    });
+    
+    document.querySelectorAll('.close-modal').forEach(btn => {
+      btn.addEventListener('click', () => {
+        githubModal.classList.remove('active');
+        modelModal.classList.remove('active');
+      });
+    });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (e) => {
+      if (e.target === githubModal) {
+        githubModal.classList.remove('active');
+      }
+      if (e.target === modelModal) {
+        modelModal.classList.remove('active');
+      }
+    });
+    
+    // Chat functionality
+    const chatInput = document.querySelector('.chat-input');
+    const sendBtn = document.querySelector('.send-btn');
+    const chatMessages = document.querySelector('.chat-messages');
+    
+    function addMessage(content, isUser) {
+      const messageDiv = document.createElement('div');
+      messageDiv.classList.add('message');
+      messageDiv.classList.add(isUser ? 'user-message' : 'ai-message');
+      
+      const now = new Date();
+      const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      
+      messageDiv.innerHTML = `
+        <div class="message-header">
+          <span>${isUser ? 'You' : 'NexusChat'}</span>
+          <span>${timeString}</span>
+        </div>
+        <div class="message-content">${content}</div>
+      `;
+      
+      chatMessages.appendChild(messageDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    sendBtn.addEventListener('click', () => {
+      const message = chatInput.value.trim();
+      if (message) {
+        addMessage(message, true);
+        chatInput.value = '';
+        
+        // Simulate AI response after a short delay
+        setTimeout(() => {
+          addMessage("I've received your message. In a real implementation, this would connect to your selected AI model and provide assistance with your ASX BLOCKS project.", false);
+        }, 1000);
+      }
+    });
+    
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendBtn.click();
+      }
+    });
+    
+    // Initialize
+    window.addEventListener('load', () => {
+      initMatrix();
+      populateSection('arcadeGrid', games, 'game');
+      populateSection('builderGrid', creations, 'creation');
+      populateSection('marketGrid', marketItems, 'market');
+      
+      // Add some demo transactions
+      const txList = document.getElementById('txList');
+      const transactions = [
+        'Game Purchase - 2.5 ASX',
+        'Staking Reward +0.8 ASX',
+        'NFT Mint - 1.2 ASX',
+        'Market Sale +5.7 ASX'
+      ];
+      
+      transactions.forEach(tx => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `<span>${tx}</span><span class="chip">Complete</span>`;
+        txList.appendChild(row);
+      });
+      
+      // Add chat event listeners
+      openChatBtn.addEventListener('click', openChat);
+      dockChatBtn.addEventListener('click', openChat);
+      closeChatBtn.addEventListener('click', closeChat);
+    });
+    
+    // Handle window resize
+    window.addEventListener('resize', resizeCanvas);
+    
+    // Button interactions
+    document.getElementById('connectWallet').addEventListener('click', () => {
+      const balance = document.getElementById('asxBal');
+      const current = parseFloat(balance.textContent);
+      balance.textContent = (current + 10).toFixed(2);
+    });
+    
+    document.getElementById('stakeBtn').addEventListener('click', () => {
+      const balance = document.getElementById('asxBal');
+      const current = parseFloat(balance.textContent);
+      if (current >= 5) {
+        balance.textContent = (current - 5).toFixed(2);
+        alert('5 ASX staked successfully!');
+      } else {
+        alert('Insufficient balance for staking');
+      }
+    });
+  </script>
+</body>
+</html>

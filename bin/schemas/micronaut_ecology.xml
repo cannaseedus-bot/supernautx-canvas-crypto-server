@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecology>
+  <species id="SchedulingAssistant" habitat="meta"/>
+  <species id="CareerCoach" habitat="semantic"/>
+  <species id="ManifestArchitect" habitat="meta"/>
+</ecology>
+

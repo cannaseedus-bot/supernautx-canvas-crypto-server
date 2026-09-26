@@ -1,0 +1,15 @@
+{
+  "schema": "canvas.runtime.bootstrap.v1",
+  "tabs": [
+    {
+      "html": "mx2lm-os-v17.html",
+      "label": "MX2LM OS v17 Bootstrap",
+      "active": false
+    },
+    {
+      "html": "GUIX-AI-CHAT-BOX.html",
+      "label": "GUIX AI Chat Box",
+      "active": true
+    }
+  ]
+}

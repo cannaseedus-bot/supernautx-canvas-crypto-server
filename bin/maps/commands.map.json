@@ -1,0 +1,11 @@
+{
+  "commands": [
+    "health",
+    "agents",
+    "tools",
+    "skills",
+    "commands",
+    "edict"
+  ]
+}
+

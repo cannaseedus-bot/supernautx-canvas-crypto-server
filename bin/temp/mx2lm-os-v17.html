@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="en" data-os="mx2lm-v17" data-state="booting">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MX2LM OS v17 — K'UHUL ISA · BSON ROM Host</title>
+<style>
+/* ══════════════════════════════════════════════════════════════
+   MX2LM OS v17 — UNIFIED DESIGN SYSTEM
+   @law: ASX = XCFE = XJSON = KUHUL = AST = Ω
+   CSS is projection. AST is truth. Opcodes are never seen.
+   Three-pane OS: header(locked) | left|center|right | footer(locked)
+══════════════════════════════════════════════════════════════ */
+:root {
+  --⟁bg:  #020617; --⟁bg2: #040d20; --⟁bg3: #06122a; --⟁bg4: #071528;
+  --⟁fg:  #e6fffa; --⟁fg2: #7dd3fc; --⟁fg3: #3d6a82; --⟁fg4: #1e3a4a;
+  --⟁em:  #16f2aa; --⟁cy:  #00f5ff; --⟁pu:  #a78bfa;
+  --⟁go:  #fbbf24; --⟁re:  #fb7185; --⟁gn:  #34d399;
+  --sem:  rgba(22,242,170,.4);  --sey: rgba(0,245,255,.3);
+  --g-em: 0 0 24px rgba(22,242,170,.3); --g-cy: 0 0 20px rgba(0,245,255,.25);
+  --g-pu: 0 0 20px rgba(167,139,250,.3);
+  --stroke: rgba(22,242,170,.12); --stroke2: rgba(22,242,170,.25);
+
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --r1:4px;--r2:8px;--r3:12px;--r4:16px;--r5:20px;--rp:999px;
+
+  --header-h: 34px;
+  --footer-h: 56px;
+  --sidebar-w: 260px;
+  --font-ui: system-ui,-apple-system,"SF Pro Text","Segoe UI",sans-serif;
+  --font-mono: "JetBrains Mono","Fira Code",ui-monospace,monospace;
+
+  /* CSS Glyph-Opcode Runtime Bindings */
+  --op-pop:  "load"; --op-wo: "bind"; --op-sek: "exec";
+  --op-chen: "emit"; --op-xul: "end"; --op-yax: "store";
+}
+[data-op=Pop]  { border-color:var(--⟁em); --phase:"load";  }
+[data-op=Wo]   { border-color:var(--⟁cy); --phase:"bind";  }
+[data-op=Sek]  { border-color:var(--⟁pu); --phase:"exec";  }
+[data-op=Chen] { border-color:var(--⟁go); --phase:"emit";  }
+[data-op=Xul]  { border-color:var(--⟁re); --phase:"end";   }
+[data-op=Yax]  { border-color:var(--⟁gn); --phase:"store"; }
+[data-xcfe=action] { transition:all .2s ease; }
+[data-xcfe=decision] { cursor:pointer; }
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html,body { width:100%; height:100%; overflow:hidden; font-family:var(--font-ui); color:var(--⟁fg); font-size:13px; }
+body {
+  background:
+    radial-gradient(ellipse 60% 40% at 4% 0%,   rgba(22,242,170,.06)  0,transparent 60%),
+    radial-gradient(ellipse 50% 35% at 96% 100%, rgba(167,139,250,.05) 0,transparent 55%),
+    var(--⟁bg);
+}
+*::-webkit-scrollbar { width:5px; height:5px; }
+*::-webkit-scrollbar-track { background:transparent; }
+*::-webkit-scrollbar-thumb { background:rgba(22,242,170,.18); border-radius:3px; }
+* { scrollbar-width:thin; scrollbar-color:rgba(22,242,170,.18) transparent; }
+
+/* ── BOOT SCREEN ──────────────────────────────────────────────────── */
+#boot {
+  position:fixed; inset:0; z-index:9999;
+  background:var(--⟁bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--s3);
+  transition:opacity .5s ease;
+}
+#boot.gone { opacity:0; pointer-events:none; }
+.boot-logo {
+  font-family:var(--font-mono); font-size:52px; font-weight:900; letter-spacing:.08em;
+  background:linear-gradient(90deg,var(--⟁em),var(--⟁cy),var(--⟁pu));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.boot-sub { font-family:var(--font-mono); font-size:11px; color:var(--⟁fg3); letter-spacing:.18em; text-transform:uppercase; }
+.boot-pipeline { display:flex; align-items:center; gap:3px; font-family:var(--font-mono); font-size:10px; flex-wrap:wrap; justify-content:center; max-width:600px; }
+.bp { padding:3px 8px; border-radius:var(--rp); border:1px solid rgba(22,242,170,.15); color:var(--⟁fg4); transition:all .3s; }
+.bp.active { border-color:var(--⟁go); color:var(--⟁go); box-shadow:0 0 8px rgba(251,191,36,.3); }
+.bp.done   { border-color:var(--⟁em); color:var(--⟁em); background:rgba(22,242,170,.06); }
+.bp-arr { color:var(--⟁fg4); font-size:9px; }
+.boot-bar { width:480px; max-width:90vw; height:2px; background:rgba(22,242,170,.08); border-radius:1px; }
+.boot-fill { height:100%; width:0; background:linear-gradient(90deg,var(--⟁em),var(--⟁cy)); transition:width .12s; }
+.boot-log { font-family:var(--font-mono); font-size:10px; color:var(--⟁em); width:480px; max-width:90vw; height:90px; overflow:hidden; border:1px solid rgba(22,242,170,.12); padding:var(--s2); background:rgba(0,0,0,.4); border-radius:var(--r2); }
+
+/* ══════════════════════════════════════════════════════════════
+   OS SHELL — LOCKED HEADER + 3 PANES + LOCKED FOOTER/DOCK
+══════════════════════════════════════════════════════════════ */
+#os { display:flex; flex-direction:column; height:100vh; opacity:0; transition:opacity .5s; }
+#os.visible { opacity:1; }
+
+/* ── LOCKED HEADER ─────────────────────────────────────────────── */
+.os-header {
+  height:var(--header-h); flex-shrink:0;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 var(--s4);
+  background:rgba(4,13,32,.97);
+  border-bottom:1px solid var(--stroke);
+  backdrop-filter:blur(16px); z-index:100;
+}
+.hdr-left  { display:flex; align-items:center; gap:var(--s4); }
+.hdr-right { display:flex; align-items:center; gap:var(--s3); font-family:var(--font-mono); font-size:10px; color:var(--⟁fg3); }
+.hdr-brand { font-family:var(--font-mono); font-size:12px; font-weight:900; letter-spacing:.15em; color:var(--⟁em); }
+.hdr-item  { font-size:10px; color:var(--⟁fg2); cursor:pointer; padding:3px var(--s2); border-radius:3px; }
+.hdr-item:hover { color:var(--⟁fg); background:rgba(255,255,255,.07); }
+.led { width:6px; height:6px; border-radius:50%; background:var(--⟁em); box-shadow:var(--g-em); display:inline-block; animation:led-pulse 2.5s ease-in-out infinite; }
+@keyframes led-pulse { 0%,100%{opacity:1}50%{opacity:.35} }
+.hdr-badge { font-size:9px; padding:2px 7px; border-radius:var(--rp); border:1px solid rgba(22,242,170,.35); color:var(--⟁em); background:rgba(22,242,170,.07); }
+
+/* ── THREE-PANE BODY ───────────────────────────────────────────── */
+.os-body {
+  flex:1; min-height:0;
+  display:grid;
+  grid-template-columns: var(--sidebar-w) 1fr var(--sidebar-w);
+  overflow:hidden;
+}
+
+/* ── SIDEBAR PANES (left + right) ───────────────────────────────── */
+.sidebar {
+  display:flex; flex-direction:column; min-height:0;
+  background:rgba(4,13,32,.85); overflow:hidden;
+}
+.sidebar-left  { border-right:1px solid var(--stroke); }
+.sidebar-right { border-left:1px solid var(--stroke); }
+
+.sb-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:6px var(--s3); flex-shrink:0;
+  border-bottom:1px solid rgba(22,242,170,.08);
+  font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--⟁fg3);
+  background:rgba(4,13,32,.6);
+}
+.sb-tabs {
+  display:flex; border-bottom:1px solid rgba(22,242,170,.08); flex-shrink:0;
+}
+.sb-tab {
+  flex:1; padding:5px 4px; font-size:9px; text-align:center; cursor:pointer;
+  color:var(--⟁fg3); border-bottom:2px solid transparent;
+  letter-spacing:.05em; text-transform:uppercase; transition:all .12s;
+}
+.sb-tab.active { color:var(--⟁em); border-bottom-color:var(--⟁em); background:rgba(22,242,170,.03); }
+.sb-body { flex:1; overflow-y:auto; min-height:0; }
+.sb-pane { display:none; padding:var(--s2); }
+.sb-pane.active { display:flex; flex-direction:column; gap:var(--s2); }
+
+/* ── CENTER CANVAS ─────────────────────────────────────────────── */
+.center-canvas {
+  display:flex; flex-direction:column; min-height:0; overflow:hidden;
+  background:var(--⟁bg);
+}
+.canvas-titlebar {
+  display:flex; align-items:center; gap:var(--s3); padding:6px var(--s4); flex-shrink:0;
+  background:rgba(4,13,32,.9); border-bottom:1px solid rgba(22,242,170,.08);
+}
+.ctb-dots { display:flex; gap:4px; }
+.ctb-dot { width:9px; height:9px; border-radius:50%; }
+.ctb-dot:nth-child(1){background:#f87171;} .ctb-dot:nth-child(2){background:#facc15;} .ctb-dot:nth-child(3){background:#4ade80;}
+.ctb-title { font-size:11px; color:var(--⟁fg2); font-family:var(--font-mono); flex:1; }
+.ctb-route { font-size:9px; color:var(--⟁fg3); font-family:var(--font-mono); }
+.ctb-actions { display:flex; gap:var(--s2); }
+.canvas-content { flex:1; overflow:auto; min-height:0; position:relative; }
+
+/* ── STATUS BAR ────────────────────────────────────────────────── */
+.os-statusbar {
+  height:20px; flex-shrink:0;
+  display:flex; align-items:center; gap:var(--s4); padding:0 var(--s3);
+  background:rgba(4,13,32,.97); border-top:1px solid rgba(22,242,170,.06);
+  font-family:var(--font-mono); font-size:9px; color:var(--⟁fg3);
+  overflow:hidden; position:relative;
+}
+.os-statusbar::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(90deg,transparent,rgba(22,242,170,.04),transparent);
+  width:120px; animation:scanline 5s linear infinite;
+}
+@keyframes scanline { 0%{left:-120px} 100%{left:100%} }
+.sb-kv { color:var(--⟁fg3); } .sb-vv { color:var(--⟁em); }
+
+/* ── LOCKED FOOTER + DOCK ──────────────────────────────────────── */
+.os-footer {
+  height:var(--footer-h); flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(4,13,32,.97); border-top:1px solid var(--stroke);
+  position:relative; z-index:200;
+}
+.dock {
+  display:flex; gap:var(--s2); padding:6px 12px;
+  border-radius:var(--r5); background:rgba(6,18,42,.95);
+  border:1px solid rgba(22,242,170,.2);
+  box-shadow:0 -4px 24px rgba(0,0,0,.5), var(--g-em);
+  backdrop-filter:blur(20px);
+}
+.dock-ico {
+  width:42px; height:42px; border-radius:var(--r3);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  font-size:17px; cursor:pointer;
+  background:rgba(255,255,255,.04); border:1px solid rgba(22,242,170,.12);
+  transition:all .15s; position:relative;
+}
+.dock-ico:hover { transform:translateY(-4px); border-color:var(--sem); box-shadow:var(--g-em); }
+.dock-ico.active { border-color:var(--sem); box-shadow:var(--g-em); background:rgba(22,242,170,.09); }
+.dock-ico span.lbl { font-size:8px; color:var(--⟁fg3); letter-spacing:.04em; }
+.dock-sep { width:1px; height:30px; background:rgba(22,242,170,.12); margin:0 2px; align-self:center; }
+
+/* ── WIDGET POPUPS (float above footer) ─────────────────────────── */
+.widget-popup {
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom:calc(var(--footer-h) + 8px); z-index:500;
+  display:none; flex-direction:column;
+  border-radius:var(--r5);
+  border:1px solid var(--sem);
+  background:rgba(4,9,24,.97);
+  backdrop-filter:blur(28px);
+  box-shadow:0 -8px 48px rgba(0,0,0,.6), var(--g-em);
+  animation:widgetUp .22s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+}
+.widget-popup.visible { display:flex; }
+@keyframes widgetUp { from{opacity:0;transform:translateX(-50%) translateY(20px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+.w-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px; border-bottom:1px solid rgba(22,242,170,.12);
+  background:rgba(4,13,32,.7); flex-shrink:0;
+}
+.w-title { font-size:12px; font-weight:600; color:var(--⟁em); display:flex; align-items:center; gap:7px; }
+.w-close {
+  width:26px; height:26px; border-radius:50%;
+  background:transparent; border:1px solid rgba(22,242,170,.2);
+  color:var(--⟁fg3); cursor:pointer; font-size:12px;
+  display:flex; align-items:center; justify-content:center; transition:all .12s;
+}
+.w-close:hover { border-color:#ff3366; color:#ff3366; background:rgba(255,51,102,.1); }
+.w-body { flex:1; overflow:auto; min-height:0; }
+
+/* Widget sizes */
+#w-chat    { width:min(860px,90vw); height:min(620px,80vh); }
+#w-agl     { width:min(880px,90vw); height:min(660px,80vh); }
+#w-runtime { width:min(900px,92vw); height:min(620px,80vh); }
+#w-forum   { width:min(880px,90vw); height:min(620px,82vh); }
+#w-wallet  { width:min(500px,90vw); height:auto; max-height:70vh; }
+#w-settings{ width:min(420px,88vw); height:auto; max-height:70vh; }
+#w-isa     { width:min(720px,90vw); height:min(560px,80vh); }
+#w-bson    { width:min(680px,90vw); height:min(480px,76vh); }
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED COMPONENT PRIMITIVES
+══════════════════════════════════════════════════════════════ */
+.btn {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:4px 11px; border-radius:var(--rp); font-size:10px; font-family:var(--font-ui);
+  border:1px solid rgba(22,242,170,.3); cursor:pointer;
+  background:linear-gradient(140deg,rgba(4,13,32,.98),rgba(16,185,129,.08));
+  color:var(--⟁fg); transition:all .12s; white-space:nowrap;
+}
+.btn:hover { border-color:var(--sem); box-shadow:var(--g-em); transform:translateY(-1px); }
+.btn.em  { color:#bbf7d0; border-color:var(--sem); box-shadow:var(--g-em); }
+.btn.pu  { color:#ddd6fe; border-color:rgba(167,139,250,.4); box-shadow:var(--g-pu); }
+.btn.sm  { padding:3px 8px; font-size:9px; }
+
+.chip { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:var(--rp); font-size:10px; border:1px solid rgba(22,242,170,.2); background:rgba(22,242,170,.06); color:var(--⟁fg2); }
+.dot-live { width:7px; height:7px; border-radius:50%; background:var(--⟁gn); box-shadow:0 0 6px var(--⟁gn); animation:led-pulse 2.5s ease-in-out infinite; display:inline-block; }
+.tag { display:inline-flex; align-items:center; padding:1px 6px; border-radius:var(--rp); font-size:9px; border:1px solid rgba(22,242,170,.2); color:var(--⟁fg3); }
+.tag.game { border-color:rgba(167,139,250,.3); color:var(--⟁pu); }
+.tag.app  { border-color:rgba(0,245,255,.25);  color:var(--⟁cy); }
+.tag.sys  { border-color:rgba(52,211,153,.25);  color:var(--⟁gn); }
+.tag.math { border-color:rgba(251,191,36,.25);  color:var(--⟁go); }
+.divider  { height:1px; background:linear-gradient(90deg,transparent,rgba(22,242,170,.15),transparent); flex-shrink:0; }
+
+/* ROM list */
+.rom-item {
+  display:flex; align-items:center; gap:var(--s2); padding:6px 8px; border-radius:var(--r2);
+  cursor:pointer; border:1px solid transparent; transition:all .12s; margin-bottom:2px;
+  font-size:11px;
+}
+.rom-item:hover { background:rgba(22,242,170,.05); border-color:rgba(22,242,170,.18); }
+.rom-item.active { background:rgba(22,242,170,.1); border-color:var(--sem); box-shadow:0 0 8px rgba(22,242,170,.15); }
+.rom-icon { font-size:14px; width:20px; text-align:center; flex-shrink:0; }
+.rom-info { flex:1; min-width:0; }
+.rom-name { color:var(--⟁fg); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rom-meta { color:var(--⟁fg3); font-size:9px; font-family:var(--font-mono); }
+
+/* Section labels */
+.sec-label { font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--⟁fg3); margin-bottom:4px; padding:0 2px; }
+
+/* Progress bar */
+.pbar { height:3px; border-radius:2px; background:rgba(22,242,170,.1); overflow:hidden; }
+.pbar-fill { height:100%; border-radius:2px; background:linear-gradient(90deg,var(--⟁em),var(--⟁cy)); transition:width .5s ease; }
+
+/* Editor */
+.code-area {
+  font-family:var(--font-mono); font-size:10.5px; line-height:1.55;
+  color:var(--⟁fg2); background:transparent; border:none; outline:none;
+  width:100%; resize:none; min-height:120px; caret-color:var(--⟁em); white-space:pre;
+}
+.code-block {
+  font-family:var(--font-mono); font-size:10px; line-height:1.55;
+  background:rgba(0,0,0,.35); border:1px solid rgba(22,242,170,.1);
+  border-radius:var(--r2); padding:var(--s2); overflow:auto;
+  color:var(--⟁fg2);
+}
+/* Syntax tokens */
+.t-em{color:var(--⟁em);} .t-cy{color:var(--⟁cy);} .t-pu{color:var(--⟁pu);}
+.t-go{color:var(--⟁go);} .t-re{color:var(--⟁re);} .t-gn{color:var(--⟁gn);}
+.t-dim{color:var(--⟁fg3); font-style:italic;}
+
+/* Fold chip */
+.fold-chip {
+  display:flex; align-items:center; gap:6px; padding:5px 8px;
+  border-radius:var(--r2); border:1px solid rgba(22,242,170,.12);
+  background:rgba(0,0,0,.25); cursor:pointer; transition:all .15s; font-size:10px;
+}
+.fold-chip:hover,.fold-chip.active { border-color:var(--sem); background:rgba(22,242,170,.08); }
+.fold-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.fold-name { color:var(--⟁fg); font-weight:600; flex:1; font-family:var(--font-mono); font-size:10px; }
+.fold-role { color:var(--⟁fg3); font-size:9px; }
+.fold-hits { color:var(--⟁em); font-size:9px; font-family:var(--font-mono); }
+
+/* KV cache slot */
+.kv-slot { display:grid; grid-template-columns:22px 1fr 52px; gap:4px; padding:3px 4px; align-items:center; border-radius:var(--r1); border:1px solid rgba(52,211,153,.12); font-size:9px; font-family:var(--font-mono); margin-bottom:2px; }
+.kv-idx { color:var(--⟁fg3); }
+.kv-fill { height:5px; border-radius:2px; background:linear-gradient(90deg,var(--⟁gn),var(--⟁em)); }
+.kv-sz { color:var(--⟁gn); text-align:right; }
+
+/* Terminal */
+.terminal { font-family:var(--font-mono); font-size:10px; line-height:1.55; }
+.tl { padding:1px 0; word-break:break-all; }
+.t-input-row { display:flex; align-items:center; gap:5px; margin-top:var(--s2); padding-top:var(--s2); border-top:1px solid rgba(22,242,170,.08); }
+.t-prompt { color:var(--⟁em); font-size:10px; font-family:var(--font-mono); }
+.t-in { flex:1; background:transparent; border:none; outline:none; color:var(--⟁fg); font-family:var(--font-mono); font-size:10px; caret-color:var(--⟁em); }
+
+/* Stat card */
+.stat-cell { padding:10px 8px; border-radius:var(--r2); text-align:center; background:rgba(0,0,0,.3); border:1px solid rgba(22,242,170,.1); }
+.stat-v { font-family:var(--font-mono); font-size:15px; font-weight:800; color:var(--⟁em); display:block; margin-bottom:2px; }
+.stat-l { font-size:9px; color:var(--⟁fg3); text-transform:uppercase; letter-spacing:.08em; }
+
+/* AST node */
+.ast-node { border-radius:var(--r2); border-left:2px solid var(--⟁fg3); background:rgba(0,0,0,.22); padding:4px 7px; font-size:9px; font-family:var(--font-mono); margin-bottom:3px; }
+.ast-node[data-t=FoldBlock]  { border-left-color:var(--⟁pu); }
+.ast-node[data-t=OpcodeStmt] { border-left-color:var(--⟁go); }
+.ast-node[data-t=RouteNode]  { border-left-color:var(--⟁cy); }
+.ast-node[data-t=StateNode]  { border-left-color:var(--⟁gn); }
+.ast-children { margin-left:var(--s3); border-left:1px dashed rgba(22,242,170,.12); padding-left:var(--s2); }
+
+/* Opcode row */
+.op-row { display:grid; grid-template-columns:30px 38px 1fr auto; gap:5px; padding:3px 5px; border-radius:var(--r1); align-items:center; font-size:9px; font-family:var(--font-mono); transition:background .12s; }
+.op-row:hover { background:rgba(22,242,170,.04); }
+.op-row.executing { background:rgba(251,191,36,.07); }
+.op-off { color:var(--⟁fg3); } .op-hex { color:var(--⟁go); }
+.op-args { color:var(--⟁fg3); text-align:right; }
+
+/* Hex dump */
+.hex-dump { font-family:var(--font-mono); font-size:9px; color:var(--⟁cy); line-height:1.7; word-break:break-all; }
+
+/* Inference step */
+.inf-step { display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:var(--r1); font-size:9px; font-family:var(--font-mono); border:1px solid rgba(167,139,250,.1); background:rgba(0,0,0,.2); transition:all .2s; margin-bottom:3px; }
+.inf-step.active { border-color:var(--⟁pu); background:rgba(167,139,250,.1); box-shadow:var(--g-pu); }
+.inf-step.done   { opacity:.5; border-color:rgba(52,211,153,.3); }
+.inf-ph  { color:var(--⟁pu); min-width:60px; font-weight:700; }
+.inf-op  { color:var(--⟁fg2); flex:1; }
+.inf-res { color:var(--⟁em); }
+
+/* DDS shard */
+.dds-row { padding:3px 6px; border-radius:var(--r1); border:1px solid rgba(245,158,11,.12); background:rgba(245,158,11,.03); font-family:var(--font-mono); font-size:9px; margin-bottom:2px; display:flex; justify-content:space-between; }
+.dds-active { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.08); }
+
+/* Shader row */
+.shader-row { padding:5px 7px; border-radius:var(--r2); border:1px solid rgba(245,158,11,.15); font-size:10px; margin-bottom:3px; transition:all .15s; }
+.shader-row.bound { border-color:rgba(245,158,11,.5); background:rgba(245,158,11,.06); }
+.shader-name { color:#f59e0b; font-weight:700; font-family:var(--font-mono); font-size:10px; }
+.shader-role { color:var(--⟁fg3); font-size:9px; }
+
+/* Chat message bubbles */
+.msg { max-width:82%; padding:8px 11px; border-radius:var(--r3); line-height:1.5; font-size:12px; }
+.msg.user { align-self:flex-end; background:linear-gradient(135deg,var(--⟁em),var(--⟁cy)); color:#02030a; border-bottom-right-radius:var(--r1); }
+.msg.ai   { align-self:flex-start; background:rgba(255,255,255,.06); border-bottom-left-radius:var(--r1); }
+.msg-hdr  { font-size:10px; opacity:.7; display:flex; justify-content:space-between; margin-bottom:4px; }
+
+/* SVG-3D inline */
+.svg3d-scene { border-radius:var(--r2); overflow:hidden; border:1px solid rgba(22,242,170,.15); background:rgba(0,0,0,.5); }
+
+/* Forum (light bg in widget) */
+.forum-wrap { background:#f5f5f5; font-family:'Segoe UI',sans-serif; font-size:13px; color:#333; min-height:100%; }
+
+/* ── GLYPH RAIN ──────────────────────────────────────────────── */
+#rain { position:fixed; inset:0; z-index:0; opacity:.28; pointer-events:none; }
+#os,#boot { position:relative; z-index:1; }
+</style>
+</head>
+<body>
+
+<canvas id="rain"></canvas>
+
+<!-- ══════════════════════════════════════════════════════════════
+     BOOT SCREEN
+══════════════════════════════════════════════════════════════ -->
+<div id="boot">
+  <div class="boot-logo">MX2LM OS</div>
+  <div class="boot-sub">K'UHUL ISA · BSON ROM Host · Three-Pane Shell · v17.0.0</div>
+  <div class="boot-pipeline" id="bpipe">
+    <div class="bp" data-s="lex">Lexer</div><div class="bp-arr">→</div>
+    <div class="bp" data-s="ast">AST</div><div class="bp-arr">→</div>
+    <div class="bp" data-s="fold">Fold Verify</div><div class="bp-arr">→</div>
+    <div class="bp" data-s="lower">Opcode Lower</div><div class="bp-arr">→</div>
+    <div class="bp" data-s="pack">SCXQ2 Pack</div><div class="bp-arr">→</div>
+    <div class="bp" data-s="dispatch">Dispatch</div><div class="bp-arr">→</div>
+    <div class="bp" data-s="shader">Shader Exec</div>
+  </div>
+  <div class="boot-bar"><div class="boot-fill" id="bfill"></div></div>
+  <div class="boot-log" id="blog"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     OS SHELL
+══════════════════════════════════════════════════════════════ -->
+<div id="os">
+
+  <!-- ── LOCKED HEADER ──────────────────────────────────────────── -->
+  <header class="os-header" data-op="Pop">
+    <div class="hdr-left">
+      <span class="hdr-brand">⟁ MX2LM</span>
+      <span class="hdr-item" onclick="OS.navMenu()">File</span>
+      <span class="hdr-item" onclick="switchSidebarTab('left','roms')">Library</span>
+      <span class="hdr-item" onclick="switchSidebarTab('left','editor')">Editor</span>
+      <span class="hdr-item" onclick="switchSidebarTab('right','terminal')">Terminal</span>
+      <span class="hdr-item" onclick="switchSidebarTab('right','ast')">AST</span>
+      <span class="hdr-item" onclick="switchSidebarTab('right','vm')">VM</span>
+    </div>
+    <div class="hdr-right">
+      <div class="dot-live"></div>
+      <span id="hdr-state">RUNNING</span>
+      <span>•</span>
+      <span id="hdr-fold" class="t-em">Fold: TOKEN</span>
+      <span>•</span>
+      <span id="hdr-op">Op: NOP</span>
+      <span>•</span>
+      <span id="hdr-clock">00:00:00</span>
+    </div>
+  </header>
+
+  <!-- ── THREE-PANE BODY ────────────────────────────────────────── -->
+  <div class="os-body">
+
+    <!-- ═══════════════════════════════════════════════════════════
+         LEFT SIDEBAR — driven by active page's manifest
+    ═══════════════════════════════════════════════════════════════ -->
+    <aside class="sidebar sidebar-left" data-op="Wo">
+      <div class="sb-header">
+        <span id="lsb-title">ROM Library</span>
+        <span id="lsb-count" class="t-em" style="font-family:var(--font-mono);font-size:9px;"></span>
+      </div>
+      <div class="sb-tabs" id="lsb-tabs">
+        <div class="sb-tab active" data-lt="roms">Library</div>
+        <div class="sb-tab" data-lt="editor">Editor</div>
+        <div class="sb-tab" data-lt="grammar">Grammar</div>
+      </div>
+      <div class="sb-body">
+
+        <!-- ROM Library pane -->
+        <div class="sb-pane active" id="lp-roms">
+          <input id="rom-search" placeholder="⟁ search ROMs…" style="width:100%;padding:5px 9px;border-radius:var(--rp);background:rgba(255,255,255,.05);border:1px solid rgba(22,242,170,.15);color:var(--⟁fg);font-size:11px;outline:none;" oninput="renderROMList(this.value)"/>
+          <div id="rom-list"></div>
+        </div>
+
+        <!-- Editor pane -->
+        <div class="sb-pane" id="lp-editor">
+          <div class="sec-label">Source — surface grammar</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;" id="grammar-tabs">
+            <button class="btn sm em" data-g="kuhul" onclick="setGrammar('kuhul')">K'UHUL</button>
+            <button class="btn sm" data-g="json" onclick="setGrammar('json')">XJSON</button>
+            <button class="btn sm" data-g="html" onclick="setGrammar('html')">HTML</button>
+            <button class="btn sm" data-g="css" onclick="setGrammar('css')">CSS</button>
+            <button class="btn sm" data-g="scx" onclick="setGrammar('scx')">SCX</button>
+          </div>
+          <textarea class="code-area" id="src-editor" style="background:rgba(0,0,0,.3);border:1px solid rgba(22,242,170,.1);border-radius:var(--r2);padding:var(--s2);min-height:160px;max-height:240px;" spellcheck="false"></textarea>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <button class="btn em sm" onclick="COMPILER.compile(document.getElementById('src-editor').value,currentGrammar)">⟁ Compile</button>
+            <button class="btn sm" onclick="VM.runInference()">▶ Run</button>
+            <button class="btn sm" onclick="VM.reset()">↺</button>
+          </div>
+          <div class="sec-label" style="margin-top:var(--s2);">Lexer tokens</div>
+          <div id="lex-out" class="code-block" style="font-size:9px;min-height:30px;"></div>
+        </div>
+
+        <!-- Grammar selector pane -->
+        <div class="sb-pane" id="lp-grammar">
+          <div class="sec-label">Surface grammars → same AST</div>
+          <div style="font-size:10px;color:var(--⟁fg3);line-height:1.6;padding:4px;background:rgba(22,242,170,.04);border-radius:var(--r2);border:1px solid rgba(22,242,170,.1);margin-bottom:var(--s2);">
+            HTML/CSS/K'UHUL/XJSON/SCX are <span class="t-em">notation only</span>. All lower to unified AST. K'UHUL source disappears — only opcodes remain.
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            ${['K\'UHUL','XJSON','HTML','CSS','SCX','WGSL','HLSL','WASM','DDS'].map(t=>`<div style="font-family:var(--font-mono);font-size:10px;padding:4px 7px;border-radius:var(--r2);border:1px solid rgba(22,242,170,.1);background:rgba(0,0,0,.2);display:flex;justify-content:space-between;"><span class="t-em">${t}</span><span class="t-dim">→ AST</span></div>`).join('')}
+          </div>
+        </div>
+
+      </div>
+      <!-- Page-specific left sidebar injection point -->
+      <div id="lsb-extra" style="flex-shrink:0;"></div>
+    </aside>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         CENTER CANVAS — current page decides content
+    ═══════════════════════════════════════════════════════════════ -->
+    <main class="center-canvas" data-op="Sek">
+      <div class="canvas-titlebar">
+        <div class="ctb-dots"><div class="ctb-dot"></div><div class="ctb-dot"></div><div class="ctb-dot"></div></div>
+        <div class="ctb-title" id="canvas-title">MX2LM OS — Select a ROM</div>
+        <div class="ctb-route" id="canvas-route">dns://localhost/os/idle</div>
+        <div class="ctb-actions">
+          <button class="btn sm" onclick="BSON_SERVER.reloadActive()">↺ Reload</button>
+          <button class="btn sm" onclick="openWidget('w-bson')">⟁ BSON</button>
+          <button class="btn sm em" onclick="BSON_SERVER.inspectActive()">Inspect</button>
+        </div>
+      </div>
+      <div class="canvas-content" id="canvas-content"></div>
+    </main>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         RIGHT SIDEBAR — driven by active page's manifest
+    ═══════════════════════════════════════════════════════════════ -->
+    <aside class="sidebar sidebar-right" data-op="Chen">
+      <div class="sb-header">
+        <span id="rsb-title">Kernel</span>
+        <div class="dot-live"></div>
+      </div>
+      <div class="sb-tabs" id="rsb-tabs">
+        <div class="sb-tab active" data-rt="terminal">Term</div>
+        <div class="sb-tab" data-rt="ast">AST</div>
+        <div class="sb-tab" data-rt="vm">VM</div>
+        <div class="sb-tab" data-rt="folds">Folds</div>
+        <div class="sb-tab" data-rt="stats">Stats</div>
+      </div>
+      <div class="sb-body">
+
+        <!-- Terminal -->
+        <div class="sb-pane active" id="rp-terminal">
+          <div class="terminal" id="terminal"></div>
+          <div class="t-input-row">
+            <span class="t-prompt">isa$</span>
+            <input class="t-in" id="t-in" placeholder="K'UHUL command…" autocomplete="off"/>
+          </div>
+        </div>
+
+        <!-- AST viewer -->
+        <div class="sb-pane" id="rp-ast">
+          <div class="sec-label">AST Truth Layer — <span id="ast-count" class="t-em">0</span> nodes</div>
+          <div style="font-size:9px;color:var(--⟁fg3);margin-bottom:4px;">Lowering targets</div>
+          <div id="lowering-targets" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:var(--s2);"></div>
+          <div id="ast-canvas" style="font-family:var(--font-mono);font-size:9px;"></div>
+          <div class="divider" style="margin:var(--s2) 0;"></div>
+          <div class="sec-label">Lowering trace</div>
+          <div id="lowering-trace" style="font-family:var(--font-mono);font-size:9px;color:var(--⟁fg3);line-height:1.7;"></div>
+        </div>
+
+        <!-- Inference VM -->
+        <div class="sb-pane" id="rp-vm">
+          <div class="sec-label">Minimal Inference VM</div>
+          <div id="inf-pipeline" style="margin-bottom:var(--s2);"></div>
+          <div class="sec-label">VM Registers</div>
+          <div id="vm-regs" style="font-family:var(--font-mono);font-size:9px;"></div>
+          <div class="divider" style="margin:var(--s2) 0;"></div>
+          <div class="sec-label">DDS Shards</div>
+          <div id="dds-list"></div>
+          <div class="divider" style="margin:var(--s2) 0;"></div>
+          <div class="sec-label">KV Cache</div>
+          <div id="kv-list"></div>
+          <div style="display:flex;gap:5px;margin-top:var(--s2);">
+            <button class="btn em sm" onclick="VM.runInference()">▶ Infer</button>
+            <button class="btn sm" onclick="VM.stepOnce()">Step</button>
+            <button class="btn sm" onclick="VM.reset()">Reset</button>
+          </div>
+        </div>
+
+        <!-- Folds -->
+        <div class="sb-pane" id="rp-folds">
+          <div class="sec-label">Semantic Execution Domains</div>
+          <div id="folds-list"></div>
+          <div class="divider" style="margin:var(--s2) 0;"></div>
+          <div class="sec-label">Shader Kernels</div>
+          <div id="shaders-list"></div>
+        </div>
+
+        <!-- Stats -->
+        <div class="sb-pane" id="rp-stats">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:var(--s2);" id="stat-grid"></div>
+          <div class="sec-label">XCFE Vectors</div>
+          <div id="xcfe-vecs" style="font-family:var(--font-mono);font-size:9px;"></div>
+          <div class="divider" style="margin:var(--s2) 0;"></div>
+          <div class="sec-label">CSS Opcode Bindings</div>
+          <div id="opcode-map-display" style="font-family:var(--font-mono);font-size:9px;"></div>
+          <div class="divider" style="margin:var(--s2) 0;"></div>
+          <div class="sec-label">Live Opcode Stream</div>
+          <div id="opcode-stream" style="max-height:160px;overflow-y:auto;"></div>
+        </div>
+
+      </div>
+      <!-- Page-specific right sidebar injection point -->
+      <div id="rsb-extra" style="flex-shrink:0;"></div>
+    </aside>
+
+  </div><!-- /os-body -->
+
+  <!-- ── STATUS BAR ──────────────────────────────────────────────── -->
+  <div class="os-statusbar">
+    <span class="sb-kv">@ast</span><span class="sb-vv" id="st-ast">idle</span>
+    <span class="sb-kv">@fold</span><span class="sb-vv" id="st-fold">none</span>
+    <span class="sb-kv">@opcode</span><span class="sb-vv" id="st-op">NOP</span>
+    <span class="sb-kv">@bytes</span><span class="sb-vv" id="st-bytes">0B</span>
+    <span class="sb-kv">@kv</span><span class="sb-vv" id="st-kv">0/2048</span>
+    <span class="sb-kv">@shader</span><span class="sb-vv" id="st-shader">unbound</span>
+    <span class="sb-kv">@entropy</span><span class="sb-vv" id="st-entropy">0.12</span>
+    <span style="margin-left:auto;" class="sb-kv">@grammar</span><span class="sb-vv" id="st-grammar">K'UHUL</span>
+    <span class="sb-kv">@route</span><span class="sb-vv" id="st-route">/os/idle</span>
+  </div>
+
+  <!-- ── LOCKED FOOTER + DOCK ───────────────────────────────────── -->
+  <footer class="os-footer">
+    <div class="dock">
+      <div class="dock-ico active" id="di-home" onclick="BSON_SERVER.loadROM('home')">🏠<span class="lbl">Home</span></div>
+      <div class="dock-ico" id="di-agl" onclick="BSON_SERVER.loadROM('agl')">⟁<span class="lbl">AGL</span></div>
+      <div class="dock-ico" id="di-math" onclick="BSON_SERVER.loadROM('math')">∫<span class="lbl">Math</span></div>
+      <div class="dock-ico" id="di-doom" onclick="BSON_SERVER.loadROM('doom')">🎮<span class="lbl">DOOM</span></div>
+      <div class="dock-ico" id="di-learn" onclick="BSON_SERVER.loadROM('learning')">🧠<span class="lbl">AI</span></div>
+      <div class="dock-sep"></div>
+      <div class="dock-ico" id="di-chat" onclick="openWidget('w-chat')">💬<span class="lbl">Chat</span></div>
+      <div class="dock-ico" id="di-wagl" onclick="openWidget('w-agl')">◈<span class="lbl">Exec</span></div>
+      <div class="dock-ico" id="di-rt" onclick="openWidget('w-runtime')">⚡<span class="lbl">Runtime</span></div>
+      <div class="dock-ico" id="di-forum" onclick="openWidget('w-forum')">🌐<span class="lbl">Forum</span></div>
+      <div class="dock-ico" id="di-wallet" onclick="openWidget('w-wallet')">💰<span class="lbl">Wallet</span></div>
+      <div class="dock-ico" id="di-cfg" onclick="openWidget('w-settings')">⚙️<span class="lbl">Config</span></div>
+    </div>
+  </footer>
+
+</div><!-- /os -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     DOCK POPUP WIDGETS
+══════════════════════════════════════════════════════════════ -->
+
+<!-- CHAT WIDGET -->
+<div class="widget-popup" id="w-chat">
+  <div class="w-header"><div class="w-title">💬 NexusChat · Model Inference</div><button class="w-close" onclick="closeWidget('w-chat')">✕</button></div>
+  <div class="w-body" style="display:flex;">
+    <div style="width:240px;flex-shrink:0;border-right:1px solid rgba(22,242,170,.1);display:flex;flex-direction:column;background:rgba(4,13,32,.8);">
+      <div style="padding:var(--s3);font-size:13px;font-weight:700;color:var(--⟁em);border-bottom:1px solid rgba(22,242,170,.08);">⚡ NexusChat</div>
+      <div style="display:flex;border-bottom:1px solid rgba(22,242,170,.08);">
+        <div style="flex:1;padding:7px;text-align:center;font-size:10px;cursor:pointer;border-bottom:2px solid var(--⟁em);color:var(--⟁em);" onclick="toggleChatSidebar(this,'models')">Models</div>
+        <div style="flex:1;padding:7px;text-align:center;font-size:10px;cursor:pointer;color:var(--⟁fg3);" onclick="toggleChatSidebar(this,'files')">Files</div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:var(--s2);">
+        <div id="chat-sidebar-models">
+          <button class="btn em sm" style="width:100%;margin-bottom:8px;">+ Add Model</button>
+          ${['MX2LM PRIME','QWEN-ASX','DeepSeek Janus','Cline Local'].map((m,i)=>`<div style="padding:7px;border-radius:var(--r2);background:rgba(255,255,255,.04);border:1px solid ${i===0?'var(--sem)':'transparent'};cursor:pointer;font-size:11px;display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;" class="chat-model-item ${i===0?'active':''}" onclick="selectChatModel(this,'${m}')"><span>${m}</span><span style="width:8px;height:8px;border-radius:50%;background:${i===0||i===2?'#00d9a6':'#3d6a82'};"></span></div>`).join('')}
+        </div>
+        <div id="chat-sidebar-files" style="display:none;">
+          <button class="btn sm" style="width:100%;margin-bottom:6px;">📥 Import GitHub</button>
+          <button class="btn sm" style="width:100%;margin-bottom:8px;">📁 Upload File</button>
+          ${['index.html','manifest.json','sw.khl'].map((f,i)=>`<div style="padding:5px 7px;border-radius:var(--r2);background:rgba(255,255,255,.04);border:1px solid ${i===0?'var(--sem)':'transparent'};cursor:pointer;font-size:10px;display:flex;justify-content:space-between;margin-bottom:2px;"><span>${f}</span><span>📄</span></div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <div style="padding:12px 16px;border-bottom:1px solid rgba(22,242,170,.08);display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:7px;"><span class="dot-live"></span><strong id="chat-model-name">MX2LM PRIME</strong></div>
+        <button class="w-close" onclick="closeWidget('w-chat')">✕</button>
+      </div>
+      <div id="chat-msgs" style="flex:1;overflow-y:auto;padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3);">
+        <div class="msg ai"><div class="msg-hdr"><span>MX2LM PRIME</span><span>now</span></div>Hello! I'm your MX2LM OS assistant. Ask about ASX, AGL glyphs, K'UHUL execution, or request system operations.</div>
+      </div>
+      <div style="padding:var(--s4);border-top:1px solid rgba(22,242,170,.08);">
+        <div style="display:flex;gap:10px;">
+          <textarea id="chat-ta" style="flex:1;height:50px;resize:none;border-radius:var(--r3);padding:10px;background:rgba(255,255,255,.06);border:1px solid rgba(22,242,170,.15);color:var(--⟁fg);font-family:var(--font-ui);font-size:13px;outline:none;" placeholder="Type message…"></textarea>
+          <button onclick="sendChat()" style="width:50px;background:linear-gradient(135deg,var(--⟁em),var(--⟁cy));border:none;border-radius:var(--r3);color:#02030a;font-size:18px;cursor:pointer;">➤</button>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px;">
+          <button class="btn sm">📎 Attach</button>
+          <button class="btn sm">🔍 Search</button>
+          <button class="btn sm">💾 Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AGL EXECUTOR WIDGET -->
+<div class="widget-popup" id="w-agl">
+  <div class="w-header"><div class="w-title">⟁ AGL — Atomic Glyph Language · Live Executor</div><button class="w-close" onclick="closeWidget('w-agl')">✕</button></div>
+  <div class="w-body" style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s4);overflow-y:auto;">
+    <div style="background:linear-gradient(135deg,rgba(22,242,170,.07),rgba(167,139,250,.07));border:1px solid rgba(22,242,170,.3);border-radius:var(--r3);padding:var(--s3);text-align:center;">
+      <div style="font-size:9px;color:var(--⟁em);letter-spacing:.2em;text-transform:uppercase;margin-bottom:7px;">FUNDAMENTAL AXIOM</div>
+      <div style="font-family:var(--font-mono);font-size:12px;line-height:1.9;">
+        <span class="t-em">IF GLYPHS CAN TRAVERSE</span> <span class="t-cy">DOM ↔ API</span><br>
+        <span class="t-pu">THEN MATH CAN TOO</span><br>
+        <span class="t-go">∴ AGL = K'UHUL ⊕ MATH ⊕ DOM ⊕ API</span>
+      </div>
+    </div>
+    <div style="background:rgba(0,0,0,.4);border:1px solid rgba(22,242,170,.2);border-radius:var(--r3);overflow:hidden;">
+      <div style="padding:9px 14px;background:rgba(0,0,0,.4);border-bottom:1px solid rgba(22,242,170,.1);display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11px;color:var(--⟁cy);">⚡ Live Executor — [Pop]→[Wo]→[Sek]→[Ch'en]→[Xul]</span>
+        <span style="font-size:9px;color:var(--⟁fg3);">No Python · No backend · Pure JavaScript</span>
+      </div>
+      <div style="padding:var(--s4);">
+        <div style="display:flex;gap:9px;margin-bottom:var(--s3);">
+          <input id="agl-input" value="∫(x^2,0,10)" placeholder="∫(x^2,0,10) · ∑(n^2,1,100) · sin(π/4)" style="flex:1;background:rgba(0,0,0,.5);border:1px solid rgba(22,242,170,.2);border-radius:var(--r2);padding:9px 12px;color:var(--⟁fg);font-family:var(--font-mono);font-size:13px;outline:none;"/>
+          <button class="btn em" onclick="RENDERERS._runAGL()">Execute ⟁</button>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:var(--s3);">
+          ${['∫(x^2,0,10)','∑(n^2,1,100)','∂(x^3)','∏(n,1,5)','sin(π/4)+cos(π/4)','√(2)*π'].map(e=>`<button class="btn sm" onclick="document.getElementById('agl-input').value='${e}'">${e}</button>`).join('')}
+        </div>
+        <div id="agl-trace" class="code-block" style="min-height:80px;font-size:10px;">
+          <span class="t-dim">[Pop] 📖 Ready — enter an AGL expression above</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);">
+      <div>
+        <div class="sec-label" style="margin-bottom:8px;">Control Glyphs — K'UHUL</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">
+          ${[['⟁','BLOCK'],['Pop','ACTIVATE'],['Wo','INTENT'],['Sek','EXECUTE'],["Ch'en",'RENDER'],['Xul','COMPLETE'],['Yax','STORE'],["K'ayab'",'LOOP']].map(([s,n])=>`<div style="text-align:center;padding:7px 3px;border-radius:var(--r2);border:1px solid rgba(22,242,170,.12);background:rgba(22,242,170,.04);"><div class="t-em" style="font-family:var(--font-mono);font-size:12px;">${s}</div><div style="font-size:8px;color:var(--⟁fg3);margin-top:2px;">${n}</div></div>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="sec-label" style="margin-bottom:8px;">Math Glyphs — JS impl</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">
+          ${[['∫','integrate'],['∂','derivative'],['∑','summation'],['∏','product'],['√','sqrt'],['π','Math.PI'],['∞','Infinity'],['Δ','delta']].map(([s,n])=>`<div style="text-align:center;padding:7px 3px;border-radius:var(--r2);border:1px solid rgba(0,245,255,.1);background:rgba(0,245,255,.04);"><div class="t-cy" style="font-family:var(--font-mono);font-size:12px;">${s}</div><div style="font-size:8px;color:var(--⟁fg3);margin-top:2px;">${n}</div></div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);">
+      <div>
+        <div class="sec-label" style="margin-bottom:6px;">DOM Glyphs</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
+          ${[['◇','ELEMENT'],['◈','COMPONENT'],['⬡','CONTAINER'],['⊞','GRID'],['⊡','INPUT'],['⬢','RENDER']].map(([s,n])=>`<div style="text-align:center;padding:5px 2px;border-radius:var(--r1);border:1px solid rgba(167,139,250,.12);"><span class="t-pu" style="font-family:var(--font-mono);">${s}</span><div style="font-size:8px;color:var(--⟁fg3);">${n}</div></div>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="sec-label" style="margin-bottom:6px;">API Glyphs</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
+          ${[['⚡','FETCH'],['↑','POST'],['↓','GET'],['⟳','SYNC'],['⟹','STREAM'],['⊕','MERGE']].map(([s,n])=>`<div style="text-align:center;padding:5px 2px;border-radius:var(--r1);border:1px solid rgba(251,191,36,.1);"><span class="t-go" style="font-family:var(--font-mono);">${s}</span><div style="font-size:8px;color:var(--⟁fg3);">${n}</div></div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RUNTIME WIDGET -->
+<div class="widget-popup" id="w-runtime">
+  <div class="w-header"><div class="w-title">⚡ ASX Ultra Runtime · ASXR Engine</div><button class="w-close" onclick="closeWidget('w-runtime')">✕</button></div>
+  <div class="w-body" style="display:grid;grid-template-columns:200px 1fr;gap:7px;padding:7px;background:radial-gradient(circle at top,#04162a 0,#02030a 52%,#000 100%);">
+    <div style="border-radius:11px;border:1px solid #123047;background:rgba(2,5,16,.96);display:flex;flex-direction:column;padding:7px;gap:2px;overflow-y:auto;">
+      ${[['Pages',''],['🏠','Dashboard'],['🎮','Game Studio'],['🧠','Brain Lab'],['📦','Tape Library'],['Tools',''],['⟁','AGL Executor'],['💎','SCXQ2 Codec'],['🔧','REST Mesh'],['📊','Monitor'],['System',''],['⚙️','Settings'],['🔒','Vault']].map(([icon,label])=>label?`<div style="padding:4px 8px;border-radius:999px;font-size:11px;font-family:var(--font-mono);color:#9fc3c0;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .12s;" onmouseover="this.style.background='rgba(0,255,153,.15)';this.style.color='#00ff99'" onmouseout="this.style.background='';this.style.color='#9fc3c0'"><span>${icon}</span><span>${label}</span></div>`:`<div style="font-size:9px;color:#5c7c86;text-transform:uppercase;letter-spacing:.1em;padding:5px 8px 2px;">${icon}</div>`).join('')}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <div style="border-radius:11px;border:1px solid #123047;background:rgba(2,5,16,.96);padding:8px;">
+        <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5c7c86;border-bottom:1px solid rgba(5,24,40,.95);padding-bottom:5px;margin-bottom:7px;display:flex;justify-content:space-between;"><span>FILE TREE · ASX OS</span><span style="padding:1px 5px;border-radius:999px;border:1px solid rgba(0,255,153,.3);color:#00ff99;font-size:9px;">3 FILES</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:var(--font-mono);font-size:10px;">
+          <div style="color:#9fc3c0;">📁 ASX-OS/<br>&nbsp;&nbsp;📄 index.html<br>&nbsp;&nbsp;⚙️ manifest.json<br>&nbsp;&nbsp;🔧 sw.khl<br>📁 tapes/<br>&nbsp;&nbsp;🎮 doom.khl<br>&nbsp;&nbsp;🧠 brain.khl</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+            ${[['Brains','5','#00ff99'],['Folds','8','#00ff99'],['Ratio','0.015%','#44ffb0'],['Load','72%','#ffaa44']].map(([l,v,c])=>`<div style="background:rgba(0,255,153,.06);border:1px solid rgba(0,255,153,.2);border-radius:7px;padding:6px;text-align:center;"><div style="font-size:15px;font-weight:bold;color:${c};">${v}</div><div style="font-size:8px;color:#5c7c86;">${l}</div></div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div style="border-radius:11px;border:1px solid #123047;background:rgba(2,5,16,.96);padding:8px;flex:1;overflow-y:auto;" id="rt-terminal">
+        <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#5c7c86;margin-bottom:6px;display:flex;justify-content:space-between;"><span>TERMINAL</span><span style="color:#44ffb0;">● ACTIVE</span></div>
+        <div style="font-family:var(--font-mono);font-size:10px;color:#9fc3c0;" id="rt-log">
+          <div><span style="color:#44ffb0;">⟁Pop</span> kernel_boot → <span style="color:#44ffb0;">OK</span></div>
+          <div><span style="color:#44ffb0;">[Sek]</span> scxq2_init → ratio:0.00015 → <span style="color:#44ffb0;">OK</span></div>
+          <div><span style="color:#44ffb0;">[Sek]</span> agl_init → 26 glyphs → <span style="color:#44ffb0;">OK</span></div>
+          <div style="color:#44ffb0;font-weight:bold;">▶ LEGION TRINITY ONLINE</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:5px;">
+          <span style="color:#00ff99;">$</span>
+          <input id="rt-cmd" style="background:transparent;border:none;outline:none;font-family:var(--font-mono);font-size:10px;color:#eafff8;flex:1;" placeholder="K'UHUL command…"/>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FORUM WIDGET -->
+<div class="widget-popup" id="w-forum">
+  <div class="w-header"><div class="w-title">🌐 ASX Community Forum</div><button class="w-close" onclick="closeWidget('w-forum')">✕</button></div>
+  <div class="w-body">
+    <div class="forum-wrap" id="forum-body"></div>
+  </div>
+</div>
+
+<!-- WALLET WIDGET -->
+<div class="widget-popup" id="w-wallet">
+  <div class="w-header"><div class="w-title">💰 ASX Wallet · Assets & Staking</div><button class="w-close" onclick="closeWidget('w-wallet')">✕</button></div>
+  <div class="w-body" style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3);overflow-y:auto;">
+    <div style="padding:var(--s4);border-radius:var(--r3);background:radial-gradient(circle at 0 0,rgba(22,242,170,.1),transparent 55%),rgba(4,13,32,.9);border:1px solid var(--sem);">
+      <div style="font-size:9px;color:var(--⟁fg3);text-transform:uppercase;letter-spacing:.1em;">ASX Balance</div>
+      <div id="wallet-bal" style="font-family:var(--font-mono);font-size:38px;font-weight:900;background:linear-gradient(135deg,var(--⟁em),var(--⟁cy));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin:5px 0;">125.40</div>
+      <div style="font-size:10px;color:var(--⟁fg3);">≈ $892.84 USD · Tier: Emerald</div>
+      <div style="display:flex;gap:7px;margin-top:10px;">
+        <button class="btn em sm" onclick="walletStake()">Stake 5 ASX</button>
+        <button class="btn sm" onclick="walletEarn()">Claim Rewards</button>
+        <button class="btn sm">Send</button>
+      </div>
+    </div>
+    <div>
+      <div class="sec-label">Recent Transactions</div>
+      <div id="wallet-txs"></div>
+    </div>
+    <div>
+      <div class="sec-label">NFT Collection <span class="chip">12 items</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:6px;">
+        ${['⚔️','🔮','🌌','💎','⚡','🧬','🎮','⟁'].map(e=>`<div style="aspect-ratio:1;border-radius:var(--r2);border:1px solid rgba(22,242,170,.15);background:radial-gradient(circle at 30% 20%,rgba(22,242,170,.12),transparent 60%),rgba(4,13,32,.9);display:flex;align-items:center;justify-content:center;font-size:20px;">${e}</div>`).join('')}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS WIDGET -->
+<div class="widget-popup" id="w-settings">
+  <div class="w-header"><div class="w-title">⚙️ System Settings · MX2LM OS</div><button class="w-close" onclick="closeWidget('w-settings')">✕</button></div>
+  <div class="w-body" style="padding:var(--s4);display:flex;flex-direction:column;gap:12px;overflow-y:auto;">
+    ${[['Runtime',['SCXQ2 Compression','Horizontal Folds (8)','GPU Acceleration','Brain Mode (5)']],['AGL Executor',['Simpson Integration','Central Diff Deriv','Show Phase Trace']],['Theme',['Glyph Rain','Animations','Glass Blur']],['Editor',['Auto-Save','Syntax Highlight','Line Numbers']]].map(([g,items])=>`<div style="padding:var(--s3);border-radius:var(--r2);border:1px solid rgba(22,242,170,.1);background:rgba(0,0,0,.25);"><div style="font-size:9px;color:var(--⟁em);text-transform:uppercase;letter-spacing:.12em;margin-bottom:9px;">${g}</div>${items.map(item=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(22,242,170,.06);"><span style="font-size:10px;color:var(--⟁fg2);">${item}</span><button style="width:32px;height:18px;border-radius:9px;border:none;cursor:pointer;background:var(--⟁em);position:relative;transition:background .2s;" onclick="this.style.background=this.style.background==='rgb(61, 106, 130)'?'var(--⟁em)':'#3d6a82'"></button></div>`).join('')}</div>`).join('')}
+  </div>
+</div>
+
+<!-- ISA WIDGET -->
+<div class="widget-popup" id="w-isa">
+  <div class="w-header"><div class="w-title">⟁ K'UHUL ISA — Opcode Table</div><button class="w-close" onclick="closeWidget('w-isa')">✕</button></div>
+  <div class="w-body" style="padding:var(--s4);">
+    <div style="font-size:10px;color:var(--⟁fg3);margin-bottom:var(--s3);background:rgba(22,242,170,.04);border:1px solid rgba(22,242,170,.1);border-radius:var(--r2);padding:var(--s2);">Opcodes are never human-visible in production. K'UHUL source compiles to this ISA. Only bytecode remains at runtime.</div>
+    <div id="isa-table-full" style="display:flex;flex-direction:column;gap:2px;"></div>
+  </div>
+</div>
+
+<!-- BSON INSPECTOR WIDGET -->
+<div class="widget-popup" id="w-bson">
+  <div class="w-header"><div class="w-title">⟁ BSON Object Inspector</div><button class="w-close" onclick="closeWidget('w-bson')">✕</button></div>
+  <div class="w-body" style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3);">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);" id="bson-stats"></div>
+    <div class="sec-label">Manifest XJSON</div>
+    <div class="code-block" id="bson-manifest" style="max-height:180px;overflow-y:auto;"></div>
+    <div class="sec-label">SCXQ2 Compressed</div>
+    <div class="code-block" id="bson-compressed" style="word-break:break-all;font-size:9px;max-height:80px;overflow-y:auto;color:var(--⟁em);"></div>
+    <div class="sec-label">BSON Binary (first 64 bytes)</div>
+    <div class="hex-dump" id="bson-hex" style="background:rgba(0,0,0,.3);border:1px solid rgba(0,245,255,.12);border-radius:var(--r2);padding:var(--s2);"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     RUNTIME ENGINES — from v15 + v16
+══════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ── BSON ENCODER ──────────────────────────────────────────────── */
+const BSON={types:{DBL:0x01,STR:0x02,OBJ:0x03,ARR:0x04,BOOL:0x08,NULL:0x0A,I32:0x10,OP:0xF0,DIR:0xF1,GLYPH:0xF2},encode(o){const b=[];this._obj(o,b);return new Uint8Array(b);},_i32(n,b){b.push(n&0xFF,(n>>8)&0xFF,(n>>16)&0xFF,(n>>24)&0xFF);},_str(s,b){const e=new TextEncoder().encode(s);this._i32(e.length+1,b);for(const c of e)b.push(c);b.push(0);},_obj(o,b){const inner=[];for(const[k,v]of Object.entries(o)){const t=this._t(v);inner.push(t);for(const c of new TextEncoder().encode(k))inner.push(c);inner.push(0);this._val(v,inner,t);}inner.push(0);this._i32(inner.length+4,b);for(const x of inner)b.push(x);},_val(v,b,t){if(t===this.types.DBL){const a=new Float64Array([v]);for(const x of new Uint8Array(a.buffer))b.push(x);}else if(t===this.types.I32)this._i32(v,b);else if(t===this.types.BOOL)b.push(v?1:0);else if(t===this.types.NULL){}else if(t===this.types.OBJ)this._obj(v,b);else if(t===this.types.ARR){const obj={};v.forEach((x,i)=>obj[i]=x);this._obj(obj,b);}else this._str(v,b);},_t(v){if(v===null)return this.types.NULL;if(typeof v==='boolean')return this.types.BOOL;if(typeof v==='number')return Number.isInteger(v)?this.types.I32:this.types.DBL;if(typeof v==='string'){if(v.startsWith('[⟁')&&v.endsWith(']'))return this.types.OP;if(v.startsWith('@'))return this.types.DIR;if(v.startsWith('⟁'))return this.types.GLYPH;return this.types.STR;}if(Array.isArray(v))return this.types.ARR;return this.types.OBJ;}};
+
+/* ── SCXQ2 COMPRESSOR ─────────────────────────────────────────── */
+const SCXQ2={dict:{'display:flex':'⟁df','padding:':'⟁p','margin:':'⟁m','border-radius:':'⟁br','background:':'⟁bg','color:':'⟁c','font-size:':'⟁fs','border:':'⟁bd','gap:':'⟁g','[⟁Pop]':'⟁0','[⟁Wo]':'⟁1','[⟁Sek]':'⟁2',"[⟁Ch'en]":'⟁3','[⟁Xul]':'⟁4','[⟁Yax]':'⟁5'},compress(json){const orig=JSON.stringify(json);const oB=new TextEncoder().encode(orig).length;let c=orig;for(const[k,v]of Object.entries(this.dict))c=c.replaceAll(k,v);const cB=new TextEncoder().encode(c).length;const bsonB=BSON.encode(json).length;return{compressed:c,origBytes:oB,compBytes:cB,bsonBytes:bsonB,textRatio:((1-cB/oB)*100).toFixed(1)+'%',bsonRatio:((1-bsonB/oB)*100).toFixed(1)+'%'};}};
+
+/* ── K'UHUL MATH ENGINE ───────────────────────────────────────── */
+class KuhulMathEngine{constructor(){this.constants={'π':Math.PI,'pi':Math.PI,'e':Math.E,'φ':(1+Math.sqrt(5))/2,'∞':Infinity};this.functions={sin:Math.sin,cos:Math.cos,tan:Math.tan,asin:Math.asin,acos:Math.acos,atan:Math.atan,sinh:Math.sinh,cosh:Math.cosh,tanh:Math.tanh,exp:Math.exp,log:Math.log10,ln:Math.log,sqrt:Math.sqrt,'√':Math.sqrt,abs:Math.abs,floor:Math.floor,ceil:Math.ceil,round:Math.round};this.metrics={ops:0,astDepth:0,execTime:0};}
+integrate(f,a,b,n=1000){if(n%2!==0)n++;const h=(b-a)/n;let s=f(a)+f(b);for(let i=1;i<n;i++)s+=(i%2===0?2:4)*f(a+i*h);return(h/3)*s;}
+derivative(f,x,h=1e-10){return(f(x+h)-f(x-h))/(2*h);}
+summation(f,a,b){let s=0;for(let n=a;n<=b;n++)s+=f(n);return s;}
+product(f,a,b){let p=1;for(let n=a;n<=b;n++)p*=f(n);return p;}
+async execute(expr,cb={}){const t0=performance.now();const phase=async(ph,gl,act,val,isResult=false)=>{if(cb.onPhase)await cb.onPhase({ph,gl,act,val,isResult});await new Promise(r=>setTimeout(r,80));};
+await phase('[Pop]','📖','Parse expression',expr);
+let norm=expr.replace(/\s+/g,'').replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-').replace(/²/g,'^2').replace(/³/g,'^3');
+for(const[s,v]of Object.entries(this.constants))norm=norm.replace(new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'),`(${v})`);
+await phase('[Wo]','🎯','Build AST',norm);
+let js='',type='arithmetic';
+if(norm.includes('∫')){type='integration';const m=norm.match(/∫\(([^,]+),([^,]+),([^)]+)\)/);if(m)js=`integrate(x=>${this._js(m[1])},${m[2]},${m[3]})`;}
+else if(norm.includes('∂')){type='derivative';const m=norm.match(/∂\(([^)]+)\)/);if(m)js=`derivative(x=>${this._js(m[1])},0)`;}
+else if(norm.includes('∑')){type='summation';const m=norm.match(/∑\(([^,]+),([^,]+),([^)]+)\)/);if(m)js=`summation(n=>${this._js(m[1])},${m[2]},${m[3]})`;}
+else if(norm.includes('∏')){type='product';const m=norm.match(/∏\(([^,]+),([^,]+),([^)]+)\)/);if(m)js=`product(n=>${this._js(m[1])},${m[2]},${m[3]})`;}
+else js=this._js(norm);
+await phase('[Sek]','⚙️',`Compile (${type})`,js);
+let result;try{const fn=new Function('integrate','derivative','summation','product','Math',`with(Math){return ${js};}`);result=fn(this.integrate.bind(this),this.derivative.bind(this),this.summation.bind(this),this.product.bind(this),Math);}catch(e){result=`Error: ${e.message}`;}
+const fmt=typeof result==='number'?(Math.abs(result)>1e10||(Math.abs(result)<1e-10&&result!==0)?result.toExponential(6):parseFloat(result.toPrecision(10)).toString()):String(result);
+this.metrics.execTime=(performance.now()-t0).toFixed(1);
+await phase("[Ch'en]",'🎨','Emit result',fmt,true);await phase('[Xul]','✓','End block','complete');return{result:fmt};}
+_js(e){return e.replace(/\^/g,'**').replace(/sqrt/g,'Math.sqrt').replace(/sin/g,'Math.sin').replace(/cos/g,'Math.cos').replace(/tan/g,'Math.tan').replace(/log/g,'Math.log10').replace(/ln/g,'Math.log').replace(/exp/g,'Math.exp').replace(/abs/g,'Math.abs');}}
+const MATH=new KuhulMathEngine();
+
+/* ── SVG-3D LANGUAGE RUNTIME ──────────────────────────────────── */
+class KuhulSVG3D{constructor(){this.vMem=new Map();}
+_hash(p){let h=0;for(let i=0;i<p.length;i++){h=((h<<5)-h)+p.charCodeAt(i);h|=0;}return Math.abs(h).toString(36);}
+_xor(d,k){let r='';const h=this._hash(k);for(let i=0;i<d.length;i++)r+=String.fromCharCode(d.charCodeAt(i)^h.charCodeAt(i%h.length));return r;}
+sphereLoop(r,deg){const pts=[];for(let i=0;i<deg;i+=15){const a=i*Math.PI/180;pts.push({x:r*Math.cos(a),y:r*Math.sin(a)});}return pts;}
+neuralPath(inp){let p=`M${(Math.random()*100).toFixed(1)},${(Math.random()*100).toFixed(1)}`;for(let i=0;i<inp.length*8;i+=20)p+=` L${(Math.random()*280).toFixed(1)},${(Math.random()*180).toFixed(1)}`;return p;}
+scene(cfg){const pts=this.sphereLoop(cfg.r||70,360).map(p=>`${p.x+140},${p.y+110}`).join(' ');const np=this.neuralPath(cfg.label||'x');return `<svg viewBox="0 0 280 220" style="width:100%;height:auto;"><rect width="280" height="220" fill="#020617"/><polyline points="${pts}" fill="none" stroke="rgba(22,242,170,.35)" stroke-width="1.5"/><path d="${np}" fill="none" stroke="rgba(0,245,255,.45)" stroke-width="1"/><circle cx="140" cy="110" r="${cfg.r||70}" fill="none" stroke="rgba(167,139,250,.25)" stroke-width="1" stroke-dasharray="4 4"/><text x="8" y="16" fill="#16f2aa" font-size="8" font-family="monospace">${cfg.label||'SVG-3D'}</text></svg>`;}}
+const SVG3D=new KuhulSVG3D();
+
+/* ── ISA OPCODES ──────────────────────────────────────────────── */
+const ISA={LOAD_CONST:[0x01,'LOAD_CONST','Load constant onto stack'],LOAD_VAR:[0x02,'LOAD_VAR','Load variable from frame'],STORE_VAR:[0x03,'STORE_VAR','Store TOS to named var'],ROUTE_FOLD:[0x04,'ROUTE_FOLD','Route to named fold'],DISPATCH_SHADER:[0x05,'DISPATCH_SHADER','Bind + dispatch GPU shader'],STREAM_DDS:[0x06,'STREAM_DDS','Stream DDS shard to GPU'],MERGE_ADAPTER:[0x07,'MERGE_ADAPTER','Merge LoRA adapter delta'],PROPAGATE_PI:[0x08,'PROPAGATE_PI','Propagate π activation'],WRITE_CACHE:[0x09,'WRITE_CACHE','Write K/V pair to cache'],REPLAY_EVENT:[0x0A,'REPLAY_EVENT','Replay from trace'],ATTENTION:[0x0B,'ATTENTION','Multi-head attention'],MATMUL:[0x0C,'MATMUL','Matrix multiply'],EMBED:[0x0D,'EMBED','Token → embedding'],LOGIT:[0x0E,'LOGIT','Project to vocab logits'],FOLD_ENTER:[0x10,'FOLD_ENTER','Enter fold domain'],FOLD_EXIT:[0x11,'FOLD_EXIT','Exit fold domain'],NOP:[0xFF,'NOP','No operation'],END_BLOCK:[0xFE,'END_BLOCK','End execution block']};
+
+/* ── LEXER ─────────────────────────────────────────────────────── */
+const LEXER={tokenize(src){const toks=[];for(const line of src.split('\n')){const l=line.trim();if(!l||l.startsWith(';')||l.startsWith('//')||l.startsWith('/*')||l.startsWith('#'))continue;if(l.startsWith('⟁Pop'))toks.push({t:'FOLD_OPEN',v:l.slice(4).trim()});else if(l.startsWith('⟁Xul'))toks.push({t:'FOLD_CLOSE',v:'end'});else if(l.startsWith('Wo '))toks.push({t:'STATE',v:l.slice(3).trim()});else if(l.startsWith('Sek '))toks.push({t:'OP',v:l.slice(4).trim()});else if(l.startsWith("Ch'en "))toks.push({t:'EMIT',v:l.slice(6).trim()});else toks.push({t:'OTHER',v:l});}return toks;}};
+
+/* ── AST BUILDER ──────────────────────────────────────────────── */
+const AST_BUILDER={build(toks){const root={type:'Program',children:[],meta:{nodeCount:0}};let cur=root;const stk=[root];for(const tok of toks){if(tok.t==='FOLD_OPEN'){const n={type:'FoldBlock',id:tok.v,children:[],meta:{ops:0},parent:cur};cur.children.push(n);stk.push(n);cur=n;root.meta.nodeCount++;}else if(tok.t==='FOLD_CLOSE'){if(stk.length>1)stk.pop();cur=stk[stk.length-1];}else if(tok.t==='STATE'){const[k,...r]=tok.v.split(':=').map(s=>s.trim());cur.children.push({type:'StateNode',name:k,value:r.join(':=')});root.meta.nodeCount++;}else if(tok.t==='OP'){const[opName,...args]=tok.v.split(/\s+/);const isa=Object.values(ISA).find(o=>o[1]===opName.toUpperCase());const n={type:'OpcodeStmt',opcode:opName.toUpperCase(),hex:isa?'0x'+isa[0].toString(16).toUpperCase().padStart(2,'0'):'??',args:args.join(' ')};if(opName.toUpperCase().startsWith('ROUTE'))n.type='RouteNode';if(opName.toUpperCase()==='DISPATCH_SHADER')n.type='ShaderRef';if(opName.toUpperCase()==='STREAM_DDS')n.type='DDSRef';cur.children.push(n);if(cur.meta)cur.meta.ops++;root.meta.nodeCount++;}else if(tok.t==='EMIT'){cur.children.push({type:'RouteNode',route:tok.v});root.meta.nodeCount++;}}return root;}};
+
+/* ── OPCODE LOWERER ───────────────────────────────────────────── */
+const OPCODE_LOWERER={lower(ast){const stream=[];const ctx={off:0};this._n(ast,stream,ctx);return stream;},_n(n,s,c){if(n.type==='Program'){n.children.forEach(x=>this._n(x,s,c));}else if(n.type==='FoldBlock'){s.push({off:c.off++,hex:ISA.FOLD_ENTER[0],mnem:ISA.FOLD_ENTER[1],args:n.id});n.children.forEach(x=>this._n(x,s,c));s.push({off:c.off++,hex:ISA.FOLD_EXIT[0],mnem:ISA.FOLD_EXIT[1],args:n.id});}else if(n.type==='StateNode'){s.push({off:c.off++,hex:ISA.LOAD_CONST[0],mnem:ISA.LOAD_CONST[1],args:n.value});s.push({off:c.off++,hex:ISA.STORE_VAR[0],mnem:ISA.STORE_VAR[1],args:n.name});}else if(['OpcodeStmt','ShaderRef','DDSRef','RouteNode'].includes(n.type)){const isa=Object.values(ISA).find(o=>o[1]===(n.opcode||'NOP'));if(isa)s.push({off:c.off++,hex:isa[0],mnem:isa[1],args:n.args||n.route||''});}}}};
+
+/* ── SCXQ2 BYTECODE PACKER ────────────────────────────────────── */
+const SCXQ2_PACKER={pack(stream){const b=[];const lanes={main:[],routing:[],shader:[],meta:[]};for(const op of stream){const ab=new TextEncoder().encode(String(op.args||''));b.push(op.hex,ab.length&0xFF,...ab);if([0x04,0x10,0x11].includes(op.hex))lanes.routing.push(op.hex);else if([0x05,0x0B,0x0C].includes(op.hex))lanes.shader.push(op.hex);else if([0x01,0x02,0x03].includes(op.hex))lanes.meta.push(op.hex);else lanes.main.push(op.hex);}const orig=b.length;const comp=this._rle(b);return{raw:new Uint8Array(b),compressed:new Uint8Array(comp),lanes,origBytes:orig,compBytes:comp.length,ratio:orig>0?((1-comp.length/orig)*100).toFixed(1)+'%':'0%',laneCount:Object.values(lanes).filter(l=>l.length>0).length};},_rle(b){const o=[];let i=0;while(i<b.length){let r=1;while(i+r<b.length&&b[i+r]===b[i]&&r<255)r++;if(r>2){o.push(0xEE,r,b[i]);i+=r;}else{o.push(b[i]);i++;}}return o;}};
+
+/* ── FOLD RUNTIME ─────────────────────────────────────────────── */
+const FOLD_REGISTRY=[{id:'TOKEN_FOLD',color:'#16f2aa',role:'Token + embedding',hits:0,active:false},{id:'ATTENTION_FOLD',color:'#a78bfa',role:'Multi-head attention',hits:0,active:false},{id:'KV_CACHE_FOLD',color:'#34d399',role:'Context memory',hits:0,active:false},{id:'REPLAY_FOLD',color:'#60a5fa',role:'Event replay',hits:0,active:false},{id:'SESSION_FOLD',color:'#22d3ee',role:'Session + context',hits:0,active:false},{id:'TRAINING_FOLD',color:'#fb7185',role:'Gradient + adapt',hits:0,active:false},{id:'MICRONAUT_FOLD',color:'#fbbf24',role:'Micronaut tasks',hits:0,active:false},{id:'SHADER_FOLD',color:'#f59e0b',role:'GPU shader dispatch',hits:0,active:false}];
+
+const SHADER_REGISTRY=[{name:'attention.hlsl',role:'Multi-head attention',target:'HLSL',bound:false},{name:'matmul.hlsl',role:'Matrix multiply',target:'HLSL',bound:false},{name:'routing.hlsl',role:'Expert routing',target:'HLSL',bound:false},{name:'adapter_merge.hlsl',role:'LoRA delta merge',target:'HLSL',bound:false},{name:'embedding.wgsl',role:'Token embedding',target:'WebGPU',bound:false},{name:'logit.wgsl',role:'Logit projection',target:'WebGPU',bound:false},{name:'kv_cache.wgsl',role:'KV read/write',target:'WebGPU',bound:false},{name:'sparse_moe.hlsl',role:'Sparse MoE',target:'HLSL',bound:false}];
+
+const DDS_REGISTRY=[{id:'base_weights.dds',type:'BASE',size:'1.2GB',loaded:false},{id:'coding_expert.dds',type:'ADAPTER',size:'48MB',loaded:false},{id:'reasoning_expert.dds',type:'ADAPTER',size:'48MB',loaded:false},{id:'kv_cache_p0.dds',type:'KV',size:'256MB',loaded:false},{id:'position_enc.dds',type:'PE',size:'8MB',loaded:false}];
+
+const KV_CACHE={maxSlots:2048,slots:Array.from({length:12},(_,i)=>({idx:i,filled:0,maxSize:128})),totalFilled:0,write(slot){const s=this.slots[slot%this.slots.length];s.filled=Math.min(128,(s.filled||0)+Math.floor(Math.random()*18+6));this.totalFilled=this.slots.reduce((a,b)=>a+(b.filled||0),0);},clear(){this.slots.forEach(s=>s.filled=0);this.totalFilled=0;}};
+
+/* ── INFERENCE VM ─────────────────────────────────────────────── */
+const VM={registers:{PC:0,SP:0,FP:0,KV:0,DDS:'none',SHADER:'none',TOKEN:-1,LOGIT:0,ENTROPY:0.12},stack:[],running:false,stepIdx:0,
+pipeline:[{ph:'[Pop]',op:'TOKEN_FOLD.enter',role:'Activate token fold',status:'idle'},{ph:'[Wo]',op:'EMBED token_id',role:'token → 512-dim vec',status:'idle'},{ph:'[Sek]',op:'STREAM_DDS weights',role:'Stream to GPU',status:'idle'},{ph:'[Sek]',op:'DISPATCH attention.hlsl',role:'Bind attention shader',status:'idle'},{ph:'[Sek]',op:'ATTENTION heads:8 dim:512',role:'Multi-head attention',status:'idle'},{ph:'[Sek]',op:'WRITE_CACHE slot:KV',role:'Persist K/V',status:'idle'},{ph:'[Sek]',op:'MATMUL 512×512',role:'Feed-forward',status:'idle'},{ph:'[Sek]',op:'PROPAGATE_PI layer:12',role:'π activation',status:'idle'},{ph:"[Ch'en]",op:'LOGIT vocab:50257',role:'Project to vocab',status:'idle'},{ph:'[Xul]',op:'END_BLOCK',role:'Emit next token',status:'idle'}],
+reset(){this.registers={PC:0,SP:0,FP:0,KV:0,DDS:'none',SHADER:'none',TOKEN:-1,LOGIT:0,ENTROPY:0.12};this.stack=[];this.running=false;this.stepIdx=0;this.pipeline.forEach(s=>s.status='idle');KV_CACHE.clear();FOLD_REGISTRY.forEach(f=>f.active=false);SHADER_REGISTRY.forEach(s=>s.bound=false);DDS_REGISTRY.forEach(d=>d.loaded=false);renderAll();KLOG.log('[VM] Reset','sys');},
+async runInference(){if(this.running)return;this.reset();this.running=true;KLOG.log('[VM] Starting minimal inference pipeline','op');for(let i=0;i<this.pipeline.length;i++){await this.stepOnce();await new Promise(r=>setTimeout(r,260));}this.running=false;KLOG.log(`[VM] Done. Token:${this.registers.TOKEN} Logit:${this.registers.LOGIT}`,'out');},
+async stepOnce(){if(this.stepIdx>=this.pipeline.length){this.stepIdx=0;return;}const step=this.pipeline[this.stepIdx];step.status='active';
+switch(this.stepIdx){case 0:FOLD_REGISTRY[0].active=true;FOLD_REGISTRY[0].hits++;setStatus(null,'TOKEN_FOLD','FOLD_ENTER');break;case 1:this.registers.TOKEN=Math.floor(Math.random()*50257);KLOG.log(`[⟁EMBED] token:${this.registers.TOKEN} → vec[512]`,'val');break;case 2:this.registers.DDS='base_weights.dds';DDS_REGISTRY[0].loaded=true;KLOG.log(`[⟁STREAM_DDS] → GPU`,'val');break;case 3:this.registers.SHADER='attention.hlsl';SHADER_REGISTRY[0].bound=true;KLOG.log(`[⟁DISPATCH] attention.hlsl BOUND`,'val');setStatus(null,null,'DISPATCH_SHADER','attention.hlsl');break;case 4:FOLD_REGISTRY[1].active=true;FOLD_REGISTRY[1].hits++;this.registers.ENTROPY=parseFloat((Math.random()*0.4+0.1).toFixed(3));KLOG.log(`[⟁ATTENTION] heads:8 entropy:${this.registers.ENTROPY}`,'out');break;case 5:this.registers.KV++;KV_CACHE.write(this.registers.KV);FOLD_REGISTRY[2].active=true;FOLD_REGISTRY[2].hits++;KLOG.log(`[⟁WRITE_CACHE] slot:${this.registers.KV}`,'val');break;case 6:SHADER_REGISTRY[1].bound=true;KLOG.log(`[⟁MATMUL] 512×512`,'val');break;case 7:this.registers.ENTROPY=parseFloat((Math.random()*0.2+0.05).toFixed(3));KLOG.log(`[⟁PROPAGATE_PI] layer:12`,'val');break;case 8:this.registers.LOGIT=Math.floor(Math.random()*50257);SHADER_REGISTRY[5].bound=true;KLOG.log(`[⟁LOGIT] → next_token:${this.registers.LOGIT}`,'out');break;case 9:FOLD_REGISTRY[0].active=false;KLOG.log(`[⟁END_BLOCK] PC:${this.registers.PC} KV:${this.registers.KV}`,'sys');break;}
+this.registers.PC++;if(this.stepIdx>0&&this.pipeline[this.stepIdx-1].status==='active')this.pipeline[this.stepIdx-1].status='done';this.stepIdx++;renderAll();}};
+
+/* ── COMPILER PIPELINE ────────────────────────────────────────── */
+const COMPILER={lastAST:null,lastStream:null,lastBytecode:null,
+compile(src,grammar='kuhul'){
+  KLOG.log(`[⟁Pop] Compile · ${grammar}`,'op');
+  const toks=LEXER.tokenize(src);
+  renderLexer(toks);
+  const ast=AST_BUILDER.build(toks);
+  this.lastAST=ast;
+  renderAST(ast);
+  const stream=OPCODE_LOWERER.lower(ast);
+  this.lastStream=stream;
+  renderOpcodes(stream);
+  const bc=SCXQ2_PACKER.pack(stream);
+  this.lastBytecode=bc;
+  renderBytecode(bc);
+  const ac=document.getElementById('ast-count');
+  if(ac)ac.textContent=ast.meta.nodeCount;
+  document.getElementById('st-ast').textContent='compiled';
+  document.getElementById('st-bytes').textContent=bc.compBytes+'B';
+  document.getElementById('st-op').textContent=stream[0]?.mnem||'NOP';
+  document.getElementById('hdr-op').textContent='Op: '+(stream[0]?.mnem||'NOP');
+  KLOG.log(`[Sek] AST:${ast.meta.nodeCount} ops · Opcodes:${stream.length} · Bytecode:${bc.origBytes}B→${bc.compBytes}B (${bc.ratio})`,'out');
+  KLOG.log("[Xul] Compilation complete",'sys');
+  // Update BSON widget if open
+  if(BSON_SERVER.activeROM){const r=ROM_REGISTRY.find(x=>x.id===BSON_SERVER.activeROM);if(r)updateBSONWidget(r);}
+  return{ast,stream,bc};
+}};
+
+/* ── GRAMMAR SAMPLES ─────────────────────────────────────────── */
+const GRAMMAR_SAMPLES={
+kuhul:`; K'UHUL Surface Grammar → AST → Opcodes
+; Source NEVER executes directly.
+; Lowers to ISA opcode stream.
+
+⟁Pop attention_fold
+  Wo entropy := 0.32
+  Wo dim := 512
+  Sek ROUTE_FOLD attention_fold
+  Sek STREAM_DDS coding_expert.dds
+  Sek DISPATCH_SHADER attention.hlsl
+  Sek ATTENTION heads:8 dim:512
+  Sek WRITE_CACHE slot:0
+  Ch'en route memory_fold
+⟁Xul
+
+⟁Pop inference_loop
+  Sek EMBED token_id:42
+  Sek MATMUL m:512 k:512 n:512
+  Sek PROPAGATE_PI layer:6
+  Sek LOGIT vocab:50257
+  Ch'en emit next_token
+⟁Xul`,
+json:`{\n  "@law": "AST_TRUTH",\n  "fold": {\n    "id": "attention_fold",\n    "state": { "entropy": 0.32, "dim": 512 },\n    "ops": [\n      { "op": "ROUTE_FOLD", "target": "attention_fold" },\n      { "op": "STREAM_DDS", "shard": "coding_expert.dds" },\n      { "op": "DISPATCH_SHADER", "shader": "attention.hlsl" },\n      { "op": "ATTENTION", "heads": 8, "dim": 512 },\n      { "op": "WRITE_CACHE", "slot": 0 }\n    ]\n  }\n}`,
+html:`<!-- HTML → same AST -->\n<fold id="attention_fold">\n  <state name="entropy" value="0.32"/>\n  <op type="DISPATCH_SHADER" shader="attention.hlsl"/>\n  <op type="ATTENTION" heads="8" dim="512"/>\n  <op type="WRITE_CACHE" slot="0"/>\n  <route target="memory_fold"/>\n</fold>`,
+css:`/* CSS → AST state projection */\n[data-fold="attention_fold"] {\n  --entropy: 0.32;\n  --dim: 512;\n  --shader-bound: attention.hlsl;\n  --route-target: memory_fold;\n  --kv-slot: 0;\n}\n[data-op="ATTENTION"] { --phase: "compute"; }\n[data-op="WRITE_CACHE"] { --phase: "store"; }`,
+scx:`@law(AST_TRUTH)\n@fold(attention_fold) {\n  @state(entropy:0.32 dim:512)\n  @op(DISPATCH_SHADER shader:attention.hlsl)\n  @op(ATTENTION heads:8 dim:512)\n  @op(WRITE_CACHE slot:0)\n  @route(memory_fold)\n}`};
+
+let currentGrammar='kuhul';
+function setGrammar(g){
+  currentGrammar=g;
+  const ed=document.getElementById('src-editor');
+  if(ed)ed.value=GRAMMAR_SAMPLES[g]||'';
+  document.getElementById('st-grammar').textContent=g.toUpperCase();
+  document.querySelectorAll('[data-g]').forEach(b=>b.classList.toggle('em',b.dataset.g===g));
+}
+
+/* ── ROM REGISTRY ─────────────────────────────────────────────── */
+const ROM_REGISTRY=[
+  {id:'home',   icon:'🏠',name:'OS Dashboard',     type:'sys',  route:'/os/home',
+   leftTabs:['roms','editor'], rightTabs:['terminal','stats'],
+   manifest:{'@context':'xjson://os/home/v1','@law':'ASX=XCFE=XJSON=KUHUL=AST',n:'MX2LM OS Home',render:'home'}},
+  {id:'agl',    icon:'⟁',name:'AGL Executor',      type:'app',  route:'/os/agl',
+   leftTabs:['editor','grammar'], rightTabs:['ast','terminal'],
+   manifest:{'@context':'xjson://agl/executor/v2',n:'AGL — Atomic Glyph Language',render:'agl'}},
+  {id:'math',   icon:'∫',name:'Math Engine',        type:'math', route:'/os/math',
+   leftTabs:['editor','grammar'], rightTabs:['ast','vm'],
+   manifest:{'@context':'xjson://kuhul/math/v3',n:"K'UHUL Math Engine",phases:["[Pop]→parse","[Wo]→ast","[Sek]→compile","[Sek]→exec","[Ch'en]→emit"],render:'math'}},
+  {id:'svg3d',  icon:'🔷',name:'SVG-3D Runtime',    type:'app',  route:'/os/svg3d',
+   leftTabs:['roms','editor'], rightTabs:['terminal','stats'],
+   manifest:{'@context':'xjson://svg3d/v1',n:"K'UHUL SVG-3D Language",render:'svg3d'}},
+  {id:'css-os', icon:'🖥',name:'CSS OS Kernel',     type:'sys',  route:'/os/css-kernel',
+   leftTabs:['editor','grammar'], rightTabs:['folds','terminal'],
+   manifest:{'@context':'xjson://css-os/v1',n:'CSS OS — Quantum Execution',cssMachine:{'--os-state':'booting|running','--compression-level':'94.1%'},render:'css-os'}},
+  {id:'doom',   icon:'🎮',name:'DOOM World Ω',      type:'game', route:'/os/games/doom',
+   leftTabs:['roms','editor'], rightTabs:['vm','folds'],
+   manifest:{'@context':'xjson://games/doom/v3',n:'DOOM World Quantum',type:'tes_doom_quantum',superposition_states:4,world:{zones:['UAC Facility','Phobos Anomaly','Deimos Lab','Hell'],enemies:47,secrets:12},entities:[{id:'player',hp:100},{id:'baron',hp:300},{id:'cyberdemon',hp:800}],render:'game-doom'}},
+  {id:'morrowind',icon:'⚔️',name:'Morrowind Web', type:'game', route:'/os/games/morrowind',
+   leftTabs:['roms','editor'], rightTabs:['vm','terminal'],
+   manifest:{'@context':'xjson://games/morrowind/v1',n:'Morrowind Web Engine',world:{name:'Vvardenfell',provinces:3,factions:8,quests:200},player:{race:'Dunmer',class:'Battlemage',level:1,health:100,magicka:80},render:'game-morrowind'}},
+  {id:'learning',icon:'🧠',name:'AI Learning OS',  type:'app',  route:'/os/ai/learning',
+   leftTabs:['roms','editor'], rightTabs:['terminal','stats'],
+   manifest:{'@context':'xjson://ai/learning/v4',n:'ASX Prime OS — Autonomous Learning',kuhul_loop:["[⟁Pop]autonomous_learning","[⟁Sek]harvest_data","[⟁Sek]scx_compress_94p","[⟁Sek]incremental_train","[⟁Xul]"],sources:15,render:'ai-learning'}},
+  {id:'compress',icon:'💎',name:'SCXQ2 Codec',     type:'app',  route:'/os/scxq2',
+   leftTabs:['editor','grammar'], rightTabs:['ast','terminal'],
+   manifest:{'@context':'xjson://scxq2/v2',n:'SCXQ2 Emerald Codec',ratio:0.00015,render:'scxq2'}},
+  {id:'forum',  icon:'🌐',name:'Community Forum',  type:'app',  route:'/os/forum',
+   leftTabs:['roms','editor'], rightTabs:['terminal','stats'],
+   manifest:{'@context':'xjson://community/forum/v2',n:'ASX Community Forum',stats:{threads:1427,posts:24891,members:843,online:47},render:'forum'}},
+  {id:'atomic-css',icon:'⚛',name:'Atomic CSS Gen',type:'app', route:'/os/atomic-css',
+   leftTabs:['editor','grammar'], rightTabs:['ast','terminal'],
+   manifest:{'@context':'xjson://atomic-css/v1',n:"K'UHUL Atomic CSS Generator",render:'atomic-css'}},
+];
+
+/* ── BSON SERVER ──────────────────────────────────────────────── */
+const BSON_SERVER={activeROM:null,cache:new Map(),
+loadROM(id){
+  const rom=ROM_REGISTRY.find(r=>r.id===id);
+  if(!rom){KLOG.log(`[BSON] ROM not found: ${id}`,'err');return;}
+  const bsonBytes=BSON.encode(rom.manifest);
+  const cx=SCXQ2.compress(rom.manifest);
+  this.cache.set(id,{rom,bsonBytes,cx});
+  document.getElementById('canvas-title').textContent=`${rom.icon} ${rom.name}`;
+  document.getElementById('canvas-route').textContent=`dns://localhost${rom.route}`;
+  document.getElementById('st-route').textContent=rom.route;
+  document.getElementById('hdr-fold').textContent='Fold: '+FOLD_REGISTRY.find(f=>f.active)?.id||'TOKEN';
+  // Drive sidebar content from ROM manifest
+  this._driveSidebars(rom);
+  // Render center canvas
+  this._execROM(rom,cx);
+  // Mark dock icon active
+  document.querySelectorAll('.dock-ico').forEach(d=>d.classList.remove('active'));
+  const dockMap={home:'di-home',agl:'di-agl',math:'di-math',doom:'di-doom',learning:'di-learn'};
+  if(dockMap[id])document.getElementById(dockMap[id])?.classList.add('active');
+  // Mark ROM list
+  document.querySelectorAll('.rom-item').forEach(el=>el.classList.toggle('active',el.dataset.romId===id));
+  // Log
+  KLOG.log(`[⟁Pop] ROM: ${rom.name}`,'op');
+  KLOG.log(`[⟁Wo] BSON:${bsonBytes.length}B XJSON:${cx.origBytes}B SCX:${cx.compBytes}B (${cx.textRatio})`,'val');
+  KLOG.log(`[⟁Ch'en] dns://localhost${rom.route}`,'out');
+  this.activeROM=id;
+  updateBSONWidget(rom);
+  // Update stats
+  document.getElementById('st-bytes').textContent=bsonBytes.length+'B';
+},
+_driveSidebars(rom){
+  // Left sidebar: set visible tabs from ROM's leftTabs spec
+  const lts=rom.leftTabs||['roms','editor'];
+  const lt1=document.querySelector('[data-lt="'+lts[0]+'"]');
+  if(lt1)lt1.click();
+  document.getElementById('lsb-title').textContent=rom.name+' · Left';
+  // Right sidebar: set visible tabs from ROM's rightTabs spec
+  const rts=rom.rightTabs||['terminal','stats'];
+  const rt1=document.querySelector('[data-rt="'+rts[0]+'"]');
+  if(rt1)rt1.click();
+  document.getElementById('rsb-title').textContent=rom.name+' · Right';
+  // Inject page-specific extras
+  document.getElementById('lsb-extra').innerHTML='';
+  document.getElementById('rsb-extra').innerHTML='';
+},
+_execROM(rom,cx){
+  const frame=document.getElementById('canvas-content');
+  frame.innerHTML='';
+  const fn=PAGE_RENDERERS[rom.manifest.render];
+  if(fn)fn(rom,cx,frame);
+  else frame.innerHTML=`<div style="padding:var(--s5);font-family:var(--font-mono);color:var(--⟁em);">${rom.icon} ${rom.name}<pre style="font-size:10px;color:var(--⟁fg3);margin-top:var(--s3);white-space:pre-wrap;">${JSON.stringify(rom.manifest,null,2)}</pre></div>`;
+},
+reloadActive(){if(this.activeROM)this.loadROM(this.activeROM);},
+inspectActive(){if(!this.activeROM)return;openWidget('w-bson');const rom=ROM_REGISTRY.find(r=>r.id===this.activeROM);if(rom)updateBSONWidget(rom);}};
+
+function updateBSONWidget(rom){
+  const cx=SCXQ2.compress(rom.manifest);
+  const bsonBytes=BSON.encode(rom.manifest);
+  const stats=document.getElementById('bson-stats');
+  if(stats)stats.innerHTML=[['JSON',cx.origBytes+'B','var(--⟁re)'],['BSON',bsonBytes.length+'B','var(--⟁cy)'],['SCX',cx.compBytes+'B '+cx.textRatio,'var(--⟁em)']].map(([l,v,c])=>`<div class="stat-cell"><span class="stat-v" style="color:${c};font-size:13px;">${v}</span><span class="stat-l">${l}</span></div>`).join('');
+  const mani=document.getElementById('bson-manifest');
+  if(mani)mani.textContent=JSON.stringify(rom.manifest,null,2);
+  const comp=document.getElementById('bson-compressed');
+  if(comp){comp.textContent=cx.compressed.slice(0,200);if(cx.compressed.length>200)comp.textContent+='…';}
+  const hex=document.getElementById('bson-hex');
+  if(hex)hex.innerHTML=Array.from(bsonBytes.slice(0,64)).map(b=>`<span style="color:var(--⟁fg3);">${b.toString(16).padStart(2,'0')}</span> `).join('');
+}
+
+/* ── PAGE RENDERERS ────────────────────────────────────────────── */
+const PAGE_RENDERERS={
+
+home(rom,cx,el){
+  el.innerHTML=`<div style="padding:var(--s5);display:flex;flex-direction:column;gap:var(--s5);">
+  <div style="display:grid;grid-template-columns:1.2fr 0.9fr;gap:var(--s4);">
+    <div style="padding:var(--s5);border-radius:var(--r4);border:1px solid rgba(22,242,170,.2);background:radial-gradient(circle at 0 0,rgba(22,242,170,.07),transparent 55%)">
+      <div style="font-size:10px;color:var(--⟁em);letter-spacing:.2em;text-transform:uppercase;font-family:var(--font-mono);margin-bottom:var(--s2);">⟁ Glass Matrix OS v17</div>
+      <div style="font-size:28px;font-weight:900;background:linear-gradient(90deg,var(--⟁em),var(--⟁cy));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:var(--s3);">Build. Play. Own.</div>
+      <div style="font-size:12px;color:var(--⟁fg2);line-height:1.65;margin-bottom:var(--s4);">HTML is the host OS. ROMs are BSON-encoded XJSON AST bytecodes served via local DNS (sw.khl). Each page drives its own sidebar content. CSS is the opcode projection. AST is the truth.</div>
+      <div style="display:flex;gap:var(--s2);flex-wrap:wrap;">
+        <button class="btn em" onclick="BSON_SERVER.loadROM('doom')">🎮 DOOM World Ω</button>
+        <button class="btn" onclick="BSON_SERVER.loadROM('agl')">⟁ AGL Executor</button>
+        <button class="btn" onclick="BSON_SERVER.loadROM('math')">∫ Math Engine</button>
+        <button class="btn" onclick="BSON_SERVER.loadROM('learning')">🧠 AI Learning</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);">
+      ${[['11','ROM Library'],['5',"K'UHUL Phases"],['0.015%','SCX Ratio'],['8','Folds'],['16','ISA Opcodes'],['2048','KV Slots']].map(([v,l])=>`<div class="stat-cell"><span class="stat-v">${v}</span><span class="stat-l">${l}</span></div>`).join('')}
+    </div>
+  </div>
+  <div>
+    <div class="sec-label" style="margin-bottom:var(--s3);">K'UHUL Pipeline — Surface Grammar → AST → Opcodes → Execution</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:var(--s2);">
+      ${[["[⟁Pop]",'Load ROM','var(--⟁em)'],["[⟁Wo]",'Bind XJSON','var(--⟁cy)'],["[⟁Sek]",'Compile AST','var(--⟁pu)'],["[⟁Ch'en]",'Render DOM','var(--⟁go)'],["[⟁Xul]",'End Block','var(--⟁re)']].map(([ph,lb,c])=>`<div style="padding:var(--s3);border-radius:var(--r2);border:1px solid ${c}40;background:${c}0a;text-align:center;"><div style="font-family:var(--font-mono);font-size:11px;color:${c};font-weight:700;">${ph}</div><div style="font-size:9px;color:var(--⟁fg3);margin-top:3px;">${lb}</div></div>`).join('')}
+    </div>
+  </div>
+  <div>
+    <div class="sec-label" style="margin-bottom:var(--s3);">Architecture — HTML Host OS · BSON ROM Server · 3-Pane Shell</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3);">
+      ${[['Left Sidebar','Page-driven — ROM manifest defines tabs and content. ROM library, editor, grammar selector, page-specific tools.','var(--⟁em)'],['Center Canvas','Current page — each ROM renders its own content as HTML decoded from BSON/XJSON manifest. Pages are isolated.','var(--⟁cy)'],['Right Sidebar','Page-driven — terminal, AST viewer, inference VM, fold runtime, shader kernels, stats. Context-aware per page.','var(--⟁pu)']].map(([t,d,c])=>`<div style="padding:var(--s4);border-radius:var(--r3);border:1px solid ${c}30;background:${c}08;"><div style="font-size:12px;font-weight:700;color:${c};margin-bottom:7px;">${t}</div><div style="font-size:11px;color:var(--⟁fg3);line-height:1.5;">${d}</div></div>`).join('')}
+    </div>
+  </div>
+  <div style="background:rgba(0,0,0,.3);border-radius:var(--r3);border:1px solid rgba(22,242,170,.1);padding:var(--s4);">
+    <div class="sec-label" style="margin-bottom:var(--s3);">DNS Route Table · sw.khl · ${ROM_REGISTRY.length} registered routes</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);">
+      ${ROM_REGISTRY.map(r=>`<div style="font-family:var(--font-mono);font-size:9px;padding:4px 7px;border-radius:var(--r1);border:1px solid rgba(22,242,170,.1);background:rgba(0,0,0,.2);color:var(--⟁cy);">${r.route}<span style="color:var(--⟁fg3);"> → ${r.manifest.render}</span></div>`).join('')}
+    </div>
+  </div>
+  </div>`;
+},
+
+agl(rom,cx,el){
+  el.innerHTML=`<div style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s4);">
+  <div style="background:linear-gradient(135deg,rgba(22,242,170,.07),rgba(167,139,250,.07));border:1px solid rgba(22,242,170,.3);border-radius:var(--r3);padding:var(--s4);text-align:center;">
+    <div style="font-size:9px;color:var(--⟁em);letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px;">FUNDAMENTAL AXIOM</div>
+    <div style="font-family:var(--font-mono);font-size:13px;line-height:1.9;"><span class="t-em">IF GLYPHS CAN TRAVERSE</span> <span class="t-cy">DOM ↔ API</span><br><span class="t-pu">THEN MATH CAN TOO</span><br><span class="t-go">∴ AGL = K'UHUL ⊕ MATH ⊕ DOM ⊕ API</span></div>
+  </div>
+  <div style="background:rgba(0,0,0,.4);border:1px solid rgba(22,242,170,.2);border-radius:var(--r3);overflow:hidden;">
+    <div style="padding:9px var(--s4);background:rgba(0,0,0,.4);border-bottom:1px solid rgba(22,242,170,.1);display:flex;justify-content:space-between;align-items:center;"><span style="font-size:11px;color:var(--⟁cy);">⚡ AGL Executor — [Pop]→[Wo]→[Sek]→[Ch'en]→[Xul]</span><span style="font-size:9px;color:var(--⟁fg3);">No Python · No backend</span></div>
+    <div style="padding:var(--s4);">
+      <div style="display:flex;gap:9px;margin-bottom:var(--s3);">
+        <input id="agl-page-input" value="∫(x^2,0,10)" style="flex:1;background:rgba(0,0,0,.5);border:1px solid rgba(22,242,170,.2);border-radius:var(--r2);padding:9px 12px;color:var(--⟁fg);font-family:var(--font-mono);font-size:14px;outline:none;"/>
+        <button class="btn em" onclick="PAGE_RENDERERS._runPageAGL()">Execute ⟁</button>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:var(--s3);">
+        ${['∫(x^2,0,10)','∑(n^2,1,100)','∂(x^3)','∏(n,1,5)','sin(π/4)+cos(π/4)','√(2)*π'].map(e=>`<button class="btn sm" onclick="document.getElementById('agl-page-input').value='${e}'">${e}</button>`).join('')}
+      </div>
+      <div id="agl-page-trace" class="code-block" style="min-height:100px;font-size:10.5px;"><span class="t-dim">[Pop] 📖 Ready — enter AGL expression above</span></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s2);">
+    ${[['∫','integrate','x∈ℝ','var(--⟁cy)'],['∑','summation','Σ n','var(--⟁em)'],['∂','derivative','dx/dt','var(--⟁pu)'],['∏','product','Π n','var(--⟁go)'],['sin','trigonometric','Math.sin','var(--⟁re)'],['sqrt','square root','Math.sqrt','var(--⟁gn)'],['π','constant','3.14159','var(--⟁cy)'],['∞','infinity','Infinity','var(--⟁pu)']].map(([s,n,impl,c])=>`<div style="padding:var(--s3);border-radius:var(--r2);border:1px solid ${c}25;background:${c}08;text-align:center;"><div style="font-family:var(--font-mono);font-size:18px;color:${c};margin-bottom:4px;">${s}</div><div style="font-size:10px;color:var(--⟁fg2);">${n}</div><div style="font-size:9px;color:var(--⟁fg3);font-family:var(--font-mono);">${impl}</div></div>`).join('')}
+  </div>
+  </div>`;
+},
+
+async _runPageAGL(){
+  const input=document.getElementById('agl-page-input');
+  const trace=document.getElementById('agl-page-trace');
+  if(!input||!trace)return;
+  trace.innerHTML='';
+  await MATH.execute(input.value.trim(),{onPhase:async({ph,gl,act,val,isResult})=>{
+    const d=document.createElement('div');
+    d.style.cssText='padding:3px 0;border-bottom:1px solid rgba(22,242,170,.05);';
+    d.innerHTML=`<span style="color:var(--⟁pu);margin-right:6px;">${ph}</span>${gl} <span style="color:${isResult?'var(--⟁go)':'var(--⟁fg2)'};">${act}: ${isResult?`<b style="color:var(--⟁go);font-size:14px;">${val}</b>`:val}</span>`;
+    trace.appendChild(d);
+  }});
+},
+
+math(rom,cx,el){ PAGE_RENDERERS.agl(rom,cx,el); document.querySelector('#agl-page-trace')&&(document.getElementById('agl-page-trace').innerHTML='<span class="t-dim">K\'UHUL Math Engine — 5-phase pipeline</span>'); },
+
+'svg3d'(rom,cx,el){
+  const scenes=[{r:70,deg:360,label:'spherical-loop'},{r:50,deg:180,label:'neural-path'},{r:90,deg:270,label:'vector-field'},{r:60,deg:360,label:'cipher-mesh'}];
+  el.innerHTML=`<div style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s4);">
+  <div style="font-size:12px;color:var(--⟁cy);font-weight:700;">⟁ K'UHUL SVG-3D Language — Vector Graphics Runtime</div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:var(--s3);">
+    ${scenes.map(s=>`<div class="svg3d-scene">${SVG3D.scene(s)}<div style="padding:5px var(--s3);border-top:1px solid rgba(22,242,170,.1);display:flex;justify-content:space-between;"><span style="font-size:9px;color:var(--⟁fg3);">${s.label}</span><span style="font-size:9px;font-family:var(--font-mono);color:var(--⟁em);">(⟲)</span></div></div>`).join('')}
+  </div>
+  <div>
+    <div class="sec-label" style="margin-bottom:var(--s2);">SVG-3D Op Registry</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s2);">
+      ${[['(⤍)','vectorEncrypt'],['(⤎)','vectorDecrypt'],['(↻)','rotCompress'],['(↔)','symCompress'],['(⟲)','sphereLoop'],['(⤦)','vectorCond'],['(⟿)','neuralPath'],['(⤂)','weightVec']].map(([op,fn])=>`<div style="font-family:var(--font-mono);font-size:9px;padding:5px;border-radius:var(--r1);border:1px solid rgba(22,242,170,.1);background:rgba(0,0,0,.3);"><span class="t-em">${op}</span><br><span class="t-dim">${fn}</span></div>`).join('')}
+    </div>
+  </div>
+  <button class="btn sm" onclick="BSON_SERVER.loadROM('svg3d')" style="align-self:flex-start;">↺ Regenerate Scenes</button>
+  </div>`;
+},
+
+'css-os'(rom,cx,el){
+  el.innerHTML=`<div style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s4);">
+  <div style="display:grid;grid-template-columns:240px 1fr;gap:var(--s4);">
+    <div style="border:1px solid rgba(22,242,170,.2);border-radius:var(--r3);padding:var(--s4);background:rgba(0,0,0,.4);">
+      <div class="sec-label" style="margin-bottom:var(--s3);">OS CSS Variables</div>
+      ${Object.entries(rom.manifest.cssMachine||{}).map(([k,v])=>`<div style="font-family:var(--font-mono);font-size:10px;padding:5px 0;border-bottom:1px solid rgba(22,242,170,.06);"><span class="t-cy">${k}</span><br><span class="t-go">${v}</span></div>`).join('')}
+      <div style="margin-top:var(--s3);display:flex;flex-direction:column;gap:6px;">
+        <button class="btn em sm">Boot OS</button>
+        <button class="btn sm">GC Collect</button>
+        <button class="btn sm">New Process</button>
+      </div>
+    </div>
+    <div>
+      <div class="sec-label" style="margin-bottom:var(--s3);">CSS Glyph-Opcode Runtime Bindings</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);">
+        ${[['[data-op=Pop]','load','var(--⟁em)'],['[data-op=Wo]','bind','var(--⟁cy)'],['[data-op=Sek]','exec','var(--⟁pu)'],["[data-op=Ch'en]",'emit','var(--⟁go)'],['[data-op=Xul]','end','var(--⟁re)'],['[data-op=Yax]','store','var(--⟁gn)']].map(([sel,ph,c])=>`<div style="padding:var(--s3);border-radius:var(--r2);border:1px solid ${c}30;background:${c}08;font-family:var(--font-mono);font-size:9px;"><div style="color:${c};font-size:10px;margin-bottom:3px;">${sel}</div><div style="color:var(--⟁fg3);">--phase: "${ph}"</div></div>`).join('')}
+      </div>
+    </div>
+  </div>
+  <div style="background:rgba(0,0,0,.3);border-radius:var(--r2);padding:var(--s3);">
+    <div class="sec-label" style="margin-bottom:6px;">CSS OS Execution Classes</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      ${['.execute-program','.execute-system-call','.execute-compression','.control-process','.control-memory','.flow-conditional','.flow-iteration','.flow-parallel','.scheduler-priority','.scheduler-round-robin'].map(c=>`<span style="font-family:var(--font-mono);font-size:9px;padding:3px 7px;border-radius:var(--rp);border:1px solid rgba(22,242,170,.15);color:var(--⟁em);">${c}</span>`).join('')}
+    </div>
+  </div>
+  </div>`;
+},
+
+'game-doom'(rom,cx,el){
+  const m=rom.manifest;
+  el.innerHTML=`<div style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s4);">
+  <div style="display:flex;align-items:center;gap:var(--s3);padding:var(--s4);border-radius:var(--r4);border:1px solid rgba(167,139,250,.3);background:rgba(167,139,250,.05);">
+    <span style="font-size:32px;">🎮</span>
+    <div><div style="font-size:16px;font-weight:800;color:var(--⟁pu);">${m.n}</div><div style="font-size:11px;color:var(--⟁fg3);">Type: ${m.type} · Superposition States: ${m.superposition_states}</div></div>
+    <div style="margin-left:auto;display:flex;gap:var(--s2);"><button class="btn pu">▶ Play</button><button class="btn sm">⚙ Config</button></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--s3);">
+    <div style="border:1px solid rgba(167,139,250,.2);border-radius:var(--r3);padding:var(--s4);">
+      <div class="sec-label" style="margin-bottom:var(--s2);">Entities</div>
+      ${(m.entities||[]).map(e=>`<div style="font-family:var(--font-mono);font-size:10px;padding:4px 0;border-bottom:1px solid rgba(167,139,250,.08);display:flex;justify-content:space-between;"><span class="t-pu">${e.id}</span><span class="t-go">HP:${e.hp}</span></div>`).join('')}
+    </div>
+    <div style="border:1px solid rgba(167,139,250,.2);border-radius:var(--r3);padding:var(--s4);">
+      <div class="sec-label" style="margin-bottom:var(--s2);">World Zones</div>
+      ${(m.world.zones||[]).map(z=>`<div style="font-size:10px;color:var(--⟁fg2);padding:2px 0;">• ${z}</div>`).join('')}
+      <div style="margin-top:var(--s2);font-size:10px;color:var(--⟁fg3);">Enemies: <span class="t-re">${m.world.enemies}</span> · Secrets: <span class="t-go">${m.world.secrets}</span></div>
+    </div>
+    <div style="border:1px solid rgba(167,139,250,.2);border-radius:var(--r3);overflow:hidden;">
+      ${SVG3D.scene({r:60,deg:360,label:'DOOM-Ω'})}
+      <div style="padding:5px;font-size:9px;font-family:var(--font-mono);color:var(--⟁pu);text-align:center;">Quantum World State</div>
+    </div>
+  </div>
+  <div style="background:rgba(0,0,0,.4);border-radius:var(--r3);border:1px solid rgba(167,139,250,.12);padding:var(--s4);">
+    <div class="sec-label" style="margin-bottom:var(--s3);">XCFE Physics Governor — BSON ROM AST</div>
+    <div style="font-family:var(--font-mono);font-size:10px;line-height:1.8;color:var(--⟁fg2);">
+      <span class="t-em">⟁Wo</span> fn.xcfe.physics_step := (entity) → ast<br>
+      &nbsp;&nbsp;<span class="t-pu">[⟁Sek]</span> fn.physics.apply_force(entity) → @force<br>
+      &nbsp;&nbsp;<span class="t-pu">[⟁Sek]</span> fn.physics.integrate(entity)   → @velocity<br>
+      &nbsp;&nbsp;<span class="t-pu">[⟁Sek]</span> fn.physics.collide(entity)    → @collision<br>
+      &nbsp;&nbsp;<span class="t-go">[⟁Ch'en]</span> return entity.ast<br>
+      <span class="t-re">[⟁Xul]</span>
+    </div>
+  </div>
+  </div>`;
+},
+
+'game-morrowind'(rom,cx,el){
+  const m=rom.manifest;
+  el.innerHTML=`<div style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s4);">
+  <div style="display:flex;align-items:center;gap:var(--s3);padding:var(--s4);border-radius:var(--r4);border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.05);">
+    <span style="font-size:32px;">⚔️</span>
+    <div><div style="font-size:16px;font-weight:800;color:var(--⟁go);">${m.n}</div><div style="font-size:11px;color:var(--⟁fg3);">World: ${m.world.name} · Quests: ${m.world.quests}</div></div>
+    <div style="margin-left:auto;"><button class="btn em">▶ Enter World</button></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);">
+    <div style="border:1px solid rgba(251,191,36,.2);border-radius:var(--r3);padding:var(--s4);">
+      <div class="sec-label" style="margin-bottom:var(--s2);">Player</div>
+      ${Object.entries(m.player||{}).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(251,191,36,.08);"><span class="t-dim">${k}</span><span class="t-go" style="font-family:var(--font-mono);">${v}</span></div>`).join('')}
+    </div>
+    <div style="border:1px solid rgba(251,191,36,.2);border-radius:var(--r3);padding:var(--s4);">
+      <div class="sec-label" style="margin-bottom:var(--s2);">World</div>
+      ${Object.entries(m.world||{}).map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(251,191,36,.08);"><span class="t-dim">${k}</span><span class="t-go" style="font-family:var(--font-mono);">${v}</span></div>`).join('')}
+    </div>
+  </div>
+  </div>`;
+},
+
+'ai-learning'(rom,cx,el){
+  const m=rom.manifest;
+  const state={iter:0,kb:0,acc:0,running:false,timer:null};
+  el.innerHTML=`<div style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s4);">
+  <div style="display:flex;align-items:center;gap:var(--s3);">
+    <span style="font-size:24px;">🧠</span>
+    <div><div style="font-size:15px;font-weight:800;color:var(--⟁cy);">${m.n}</div><div style="font-size:11px;color:var(--⟁fg3);">Sources: ${m.sources} · SCX inline compression</div></div>
+    <div style="margin-left:auto;display:flex;gap:var(--s2);">
+      <button class="btn em" id="learn-start" onclick="PAGE_RENDERERS._learnToggle()">▶ Start</button>
+      <button class="btn sm" onclick="PAGE_RENDERERS._learnStep()">Step</button>
+    </div>
+  </div>
+  <div style="background:rgba(0,0,0,.3);border-radius:var(--r3);border:1px solid rgba(0,245,255,.12);padding:var(--s4);">
+    <div class="sec-label" style="margin-bottom:var(--s2);">K'UHUL Learning Loop — BSON AST Bytecode</div>
+    ${(m.kuhul_loop||[]).map((line,i)=>`<div style="font-family:var(--font-mono);font-size:10px;padding:2px 0;color:${['var(--⟁em)','var(--⟁cy)','var(--⟁pu)','var(--⟁pu)','var(--⟁re)'][i]||'var(--⟁fg2)'};">${line}</div>`).join('')}
+  </div>
+  <div id="learn-log" style="background:rgba(0,0,0,.4);border-radius:var(--r2);padding:var(--s3);font-family:var(--font-mono);font-size:9px;min-height:60px;max-height:140px;overflow-y:auto;"></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s2);">
+    <div class="stat-cell"><span class="stat-v" id="ls-iter">0</span><span class="stat-l">Iterations</span></div>
+    <div class="stat-cell"><span class="stat-v" id="ls-kb">0KB</span><span class="stat-l">Knowledge</span></div>
+    <div class="stat-cell"><span class="stat-v" id="ls-comp">94.1%</span><span class="stat-l">Compression</span></div>
+    <div class="stat-cell"><span class="stat-v" id="ls-acc">0%</span><span class="stat-l">Model Acc</span></div>
+  </div>
+  </div>`;
+  PAGE_RENDERERS._learnState={iter:0,kb:0,acc:0,running:false,timer:null};
+},
+_learnState:{iter:0,kb:0,acc:0,running:false,timer:null},
+_learnStep(){
+  const s=PAGE_RENDERERS._learnState;s.iter++;s.kb+=Math.random()*12+4;s.acc=Math.min(98,s.acc+Math.random()*2);
+  const log=document.getElementById('learn-log');
+  if(log){const d=document.createElement('div');const phases=[`[⟁Sek] harvest → ${(Math.random()*50+20).toFixed(1)}KB`,[`[⟁Sek] scx_compress → ${(94+Math.random()).toFixed(1)}%`],`[⟁Sek] train → loss:${(Math.random()*.1).toFixed(4)}`,`[⟁Ch'en] deploy → v${s.iter}.0`];d.innerHTML=phases.map((p,i)=>`<span style="color:${['var(--⟁pu)','var(--⟁cy)','var(--⟁em)','var(--⟁go)'][i]};">${p}</span>`).join(' ');log.appendChild(d);log.scrollTop=log.scrollHeight;}
+  const u=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  u('ls-iter',s.iter);u('ls-kb',s.kb.toFixed(0)+'KB');u('ls-acc',s.acc.toFixed(1)+'%');
+},
+_learnToggle(){
+  const s=PAGE_RENDERERS._learnState;const btn=document.getElementById('learn-start');
+  if(s.running){clearInterval(s.timer);s.running=false;if(btn)btn.textContent='▶ Start';}
+  else{s.running=true;if(btn)btn.textContent='⏸ Pause';s.timer=setInterval(PAGE_RENDERERS._learnStep,1100);}
+},
+
+scxq2(rom,cx,el){
+  const sample={'@context':'xjson://sample/v1',n:'Sample XJSON',ops:['[⟁Pop]','[⟁Sek]',"[⟁Ch'en]"],layout:{display:'flex',padding:'16px'}};
+  const comp=SCXQ2.compress(sample);const bson=BSON.encode(sample);
+  el.innerHTML=`<div style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s4);">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3);">
+    ${[['JSON',comp.origBytes+'B','var(--⟁re)'],['SCX',comp.compBytes+'B '+comp.textRatio,'var(--⟁em)'],['BSON',bson.length+'B','var(--⟁cy)'],['Lanes','4','var(--⟁pu)']].map(([l,v,c])=>`<div class="stat-cell"><span class="stat-v" style="color:${c};font-size:14px;">${v}</span><span class="stat-l">${l}</span></div>`).join('')}
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);">
+    <div style="border:1px solid rgba(251,65,65,.2);border-radius:var(--r3);overflow:hidden;"><div style="padding:7px var(--s3);background:rgba(251,65,65,.08);font-size:9px;color:var(--⟁re);text-transform:uppercase;letter-spacing:.1em;">Original XJSON</div><pre class="code-block" style="border-radius:0;border:none;max-height:160px;overflow:auto;">${JSON.stringify(sample,null,2)}</pre></div>
+    <div style="border:1px solid rgba(22,242,170,.2);border-radius:var(--r3);overflow:hidden;"><div style="padding:7px var(--s3);background:rgba(22,242,170,.08);font-size:9px;color:var(--⟁em);text-transform:uppercase;letter-spacing:.1em;">SCX Compressed ⟁</div><pre class="code-block" style="border-radius:0;border:none;color:var(--⟁em);max-height:160px;overflow:auto;word-break:break-all;white-space:pre-wrap;">${comp.compressed}</pre></div>
+  </div>
+  <div style="border:1px solid rgba(0,245,255,.15);border-radius:var(--r3);overflow:hidden;"><div style="padding:7px var(--s3);background:rgba(0,245,255,.06);font-size:9px;color:var(--⟁cy);text-transform:uppercase;">BSON Binary — first 64 bytes</div><div class="hex-dump" style="padding:var(--s3);">${Array.from(bson.slice(0,64)).map(b=>`<span style="color:var(--⟁fg3);">${b.toString(16).padStart(2,'0')}</span> `).join('')}</div></div>
+  </div>`;
+},
+
+'atomic-css'(rom,cx,el){
+  const gen=(props)=>{const parts=[];let inner='';for(const[p,v]of Object.entries(props)){const d={margin:'m',padding:'p',color:'c',background:'b','border-radius':'br','font-size':'fs',display:'d',gap:'g'};parts.push((d[p]||p.slice(0,2))+(v.replace(/px/g,'').replace(/\s+/g,'_').slice(0,4)));inner+=`${p}:${v};`;}return`.⟁-${parts.join('-')}{${inner}}`;};
+  const samples=[{'display':'flex','justify-content':'center','padding':'20px'},{'background':'#16f2aa','color':'#020617','border-radius':'8px'},{'position':'absolute','top':'0','left':'0','width':'100%'}];
+  el.innerHTML=`<div style="padding:var(--s4);display:flex;flex-direction:column;gap:var(--s4);">
+  <div style="font-size:13px;font-weight:700;color:var(--⟁em);">⟁ K'UHUL Atomic CSS Generator</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);">
+    <div><div class="sec-label" style="margin-bottom:var(--s2);">Input Properties</div>
+    ${samples.map((s,i)=>`<div style="margin-bottom:var(--s3);border:1px solid rgba(22,242,170,.12);border-radius:var(--r2);overflow:hidden;"><div style="padding:3px var(--s3);background:rgba(0,0,0,.3);font-size:9px;color:var(--⟁fg3);">Sample ${i+1}</div><pre class="code-block" style="border:none;border-radius:0;font-size:9px;">${JSON.stringify(s,null,2)}</pre></div>`).join('')}</div>
+    <div><div class="sec-label" style="margin-bottom:var(--s2);">⟁ Atomic CSS Output</div>
+    ${samples.map((s,i)=>`<div style="margin-bottom:var(--s3);border:1px solid rgba(0,245,255,.12);border-radius:var(--r2);overflow:hidden;"><div style="padding:3px var(--s3);background:rgba(0,245,255,.04);font-size:9px;color:var(--⟁cy);">Atomic ${i+1}</div><pre class="code-block" style="border:none;border-radius:0;font-size:9px;color:var(--⟁em);word-break:break-all;white-space:pre-wrap;">${gen(s)}</pre></div>`).join('')}</div>
+  </div>
+  <div class="code-block"><div style="display:flex;gap:var(--s4);"><div><span style="font-family:var(--font-mono);font-size:15px;color:var(--⟁em);">2.3KB</span><br><span style="font-size:9px;color:var(--⟁fg3);">Original</span></div><div><span style="font-family:var(--font-mono);font-size:15px;color:var(--⟁go);">124B</span><br><span style="font-size:9px;color:var(--⟁fg3);">K'UHUL</span></div><div><span style="font-family:var(--font-mono);font-size:15px;color:var(--⟁gn);">44B</span><br><span style="font-size:9px;color:var(--⟁fg3);">SCX</span></div><div><span style="font-family:var(--font-mono);font-size:15px;color:var(--⟁cy);">18B</span><br><span style="font-size:9px;color:var(--⟁fg3);">Quantum</span></div></div></div>
+  </div>`;
+},
+
+forum(rom,cx,el){
+  el.innerHTML=`<div class="forum-wrap">
+  <div style="background:#2c3e50;color:white;padding:12px 16px;border-bottom:3px solid #3498db;display:flex;justify-content:space-between;align-items:center;">
+    <div><div style="font-size:16px;font-weight:bold;">ASX Community Forum</div><div style="font-size:11px;color:#bdc3c7;">Discuss SCX, AGL, BSON ROM Host OS, K'UHUL ISA</div></div>
+    <div style="font-size:12px;">Welcome, <strong style="color:#3498db;">Traveler</strong></div>
+  </div>
+  <div style="background:#34495e;padding:6px 16px;display:flex;gap:4px;">
+    ${['Home','Topics','Unread','Popular','AGL Spec','BSON ROMs','New Topic'].map(n=>`<a href="#" style="color:#ecf0f1;text-decoration:none;padding:4px 10px;border-radius:3px;font-size:12px;">${n}</a>`).join('')}
+  </div>
+  <div style="padding:14px;display:flex;gap:14px;">
+    <div style="flex:3;">
+      <div style="background:#f8f9fa;padding:8px 14px;margin-bottom:14px;border-radius:3px;font-size:12px;display:flex;gap:20px;">
+        ${Object.entries(rom.manifest.stats||{}).map(([k,v])=>`<div><strong>${v}</strong> ${k}</div>`).join('')}
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:12px;">
+        <thead><tr>${['Forum','Topics','Posts','Last Post'].map(h=>`<th style="background:#f8f9fa;padding:7px 10px;text-align:left;font-size:11px;color:#7f8c8d;border-bottom:2px solid #ddd;">${h}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${['SCX Symbolic Computing','Atomic OS Dev','AGL Language','BSON ROM Architecture','Multi-Agent Systems'].map(c=>`<tr><td style="padding:7px 10px;border-bottom:1px solid #eee;"><strong><a href="#" style="color:#2c3e50;text-decoration:none;">${c}</a></strong></td><td style="padding:7px 10px;text-align:center;border-bottom:1px solid #eee;">${Math.floor(Math.random()*200+50)}</td><td style="padding:7px 10px;text-align:center;border-bottom:1px solid #eee;">${Math.floor(Math.random()*3000+500)}</td><td style="padding:7px 10px;border-bottom:1px solid #eee;font-size:11px;">Just now</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="flex:1;min-width:160px;">
+      <div style="background:#f8f9fa;border:1px solid #ddd;border-radius:3px;padding:12px;margin-bottom:10px;">
+        <div style="font-size:12px;font-weight:700;color:#2c3e50;margin-bottom:8px;text-transform:uppercase;">Stats</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          ${Object.entries(rom.manifest.stats||{}).map(([k,v])=>`<div><div style="font-size:18px;font-weight:bold;color:#2c3e50;">${v}</div><div style="font-size:10px;color:#7f8c8d;">${k}</div></div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>`;
+}};
+
+/* ── DNS LOCAL ROUTE SERVER ─────────────────────────────────────── */
+const DNS={routes:new Map(),register(method,path,handler){this.routes.set(`${method}:${path}`,{method,path,handler,hits:0});},async resolve(method,path,body=null){const r=this.routes.get(`${method}:${path}`);if(!r)return{status:404,body:{error:`No route: ${path}`}};r.hits++;return{status:200,body:await r.handler(body);};}};
+
+function initDNS(){
+  ROM_REGISTRY.forEach(rom=>{DNS.register('GET',rom.route,async()=>({rom:rom.id,bsonSize:BSON.encode(rom.manifest).length,manifest:rom.manifest}));});
+  DNS.register('GET','/os/dns/table',async()=>({routes:[...DNS.routes.entries()].map(([k,v])=>({key:k,hits:v.hits}))}));
+}
+
+/* ── RENDER HELPERS ─────────────────────────────────────────────── */
+function renderROMList(filter=''){
+  const list=document.getElementById('rom-list');
+  if(!list)return;
+  const roms=ROM_REGISTRY.filter(r=>!filter||(r.name+r.type+r.route).toLowerCase().includes(filter.toLowerCase()));
+  document.getElementById('lsb-count').textContent=`${roms.length} ROMs`;
+  list.innerHTML=roms.map(r=>`<div class="rom-item" data-rom-id="${r.id}" onclick="BSON_SERVER.loadROM('${r.id}')"><div class="rom-icon">${r.icon}</div><div class="rom-info"><div class="rom-name">${r.name}</div><div class="rom-meta">${r.route}</div></div><span class="tag ${r.type}">${r.type}</span></div>`).join('');
+}
+
+function renderFolds(){
+  const el=document.getElementById('folds-list');
+  if(!el)return;
+  el.innerHTML=FOLD_REGISTRY.map(f=>`<div class="fold-chip ${f.active?'active':''}" onclick="activateFold('${f.id}')"><div class="fold-dot" style="background:${f.color};"></div><div><div class="fold-name" style="color:${f.active?f.color:'var(--⟁fg)'};">${f.id}</div><div class="fold-role">${f.role}</div></div><div class="fold-hits">${f.hits}</div></div>`).join('');
+}
+
+function activateFold(id){
+  FOLD_REGISTRY.forEach(f=>f.active=f.id===id);
+  const fold=FOLD_REGISTRY.find(f=>f.id===id);
+  if(fold){fold.hits++;document.getElementById('st-fold').textContent=id;document.getElementById('hdr-fold').textContent='Fold: '+id;KLOG.log(`[ROUTE_FOLD] → ${id}`,'op');}
+  renderFolds();
+}
+
+function renderShaders(){
+  const el=document.getElementById('shaders-list');
+  if(!el)return;
+  el.innerHTML=SHADER_REGISTRY.map(s=>`<div class="shader-row ${s.bound?'bound':''}"><div class="shader-name">${s.name}</div><div class="shader-role">${s.role}</div><div style="display:flex;justify-content:space-between;margin-top:2px;"><span style="font-size:8px;color:var(--⟁fg3);">${s.target}</span><span style="font-size:9px;color:${s.bound?'#f59e0b':'var(--⟁fg3)'};">${s.bound?'● BOUND':'○'}</span></div></div>`).join('');
+}
+
+function renderKVCache(){
+  const el=document.getElementById('kv-list');
+  if(!el)return;
+  el.innerHTML=KV_CACHE.slots.slice(0,8).map(s=>`<div class="kv-slot"><span class="kv-idx">${s.idx}</span><div style="background:rgba(52,211,153,.08);height:5px;border-radius:2px;overflow:hidden;"><div class="kv-fill" style="width:${(s.filled/s.maxSize*100).toFixed(0)}%;"></div></div><span class="kv-sz">${s.filled}/${s.maxSize}</span></div>`).join('');
+  const kv=document.getElementById('st-kv');
+  if(kv)kv.textContent=`${KV_CACHE.slots.filter(s=>s.filled>0).length}/${KV_CACHE.maxSlots}`;
+}
+
+function renderVM(){
+  const pipe=document.getElementById('inf-pipeline');
+  if(pipe)pipe.innerHTML=VM.pipeline.map(s=>`<div class="inf-step ${s.status}"><span class="inf-ph">${s.ph}</span><span class="inf-op">${s.op}</span><span class="inf-res">${s.status==='done'?'✓':s.status==='active'?'●':''}</span></div>`).join('');
+  const regs=document.getElementById('vm-regs');
+  if(regs)regs.innerHTML=Object.entries(VM.registers).map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(22,242,170,.05);"><span class="t-dim">${k}</span><span class="t-em">${v}</span></div>`).join('');
+}
+
+function renderDDS(){
+  const el=document.getElementById('dds-list');
+  if(!el)return;
+  el.innerHTML=DDS_REGISTRY.map(d=>`<div class="dds-row ${d.loaded?'dds-active':''}"><span style="color:${d.loaded?'#f59e0b':'var(--⟁fg3)'};">${d.id}</span><span style="color:var(--⟁fg3);font-size:9px;">${d.type} ${d.size} ${d.loaded?'● GPU':'○'}</span></div>`).join('');
+}
+
+function renderAST(ast){
+  const el=document.getElementById('ast-canvas');
+  if(!el)return;el.innerHTML='';
+  const render=(n,c,d)=>{
+    if(d>5)return;
+    const div=document.createElement('div');
+    div.className='ast-node';div.dataset.t=n.type||'';
+    let body='';if(n.id)body=`id:"${n.id}"`;else if(n.opcode)body=`${n.opcode} ${n.hex||''} ${n.args||''}`;else if(n.name)body=`${n.name}:=${n.value||''}`;else if(n.route)body=`→${n.route}`;
+    div.innerHTML=`<span style="color:var(--⟁pu);font-weight:700;">${n.type||'Node'}</span> <span style="color:var(--⟁fg2);">${body}</span>`;
+    c.appendChild(div);
+    if(n.children&&n.children.length&&d<4){const cc=document.createElement('div');cc.className='ast-children';n.children.slice(0,6).forEach(x=>render(x,cc,d+1));if(n.children.length>6){const m=document.createElement('div');m.style.cssText='font-size:9px;color:var(--⟁fg3);padding:2px;font-family:var(--font-mono);';m.textContent=`…+${n.children.length-6}`;cc.appendChild(m);}c.appendChild(cc);}
+  };
+  render(ast,el,0);
+  const lt=document.getElementById('lowering-targets');
+  if(lt)lt.innerHTML=['SCXQ2','WGSL','HLSL','WASM','CPU VM','DDS','mesh'].map(t=>`<span style="padding:2px 7px;border-radius:var(--rp);font-size:9px;font-family:var(--font-mono);border:1px solid rgba(167,139,250,.2);color:var(--⟁pu);cursor:pointer;" onclick="document.getElementById('st-target').textContent='${t}'">${t}</span>`).join('');
+  const lt2=document.getElementById('lowering-trace');
+  if(lt2)lt2.innerHTML=['SCXQ2 → bytecode lanes','WGSL → WebGPU shader IR','HLSL → D3D12 shader IR','WASM → browser binary','CPU VM → interpreter'].map(t=>`<div style="display:flex;gap:6px;padding:2px 0;"><span class="t-em">AST</span><span class="t-dim">→</span><span class="t-pu">${t}</span></div>`).join('');
+}
+
+function renderOpcodes(stream){
+  const el=document.getElementById('opcode-stream');
+  if(!el)return;
+  const colors={'FOLD_ENTER':'var(--⟁em)','FOLD_EXIT':'var(--⟁re)','ROUTE_FOLD':'var(--⟁cy)','DISPATCH_SHADER':'var(--⟁go)','ATTENTION':'var(--⟁pu)','MATMUL':'var(--⟁re)','EMBED':'var(--⟁gn)','LOGIT':'var(--⟁cy)'};
+  el.innerHTML=stream.slice(0,20).map(op=>`<div class="op-row"><span class="op-off">${op.off.toString(16).padStart(4,'0')}</span><span class="op-hex">0x${op.hex.toString(16).toUpperCase().padStart(2,'0')}</span><span style="font-weight:700;color:${colors[op.mnem]||'var(--⟁go)'};">${op.mnem}</span><span class="op-args">${op.args||''}</span></div>`).join('');
+  if(stream.length>20)el.innerHTML+=`<div style="font-size:9px;color:var(--⟁fg3);padding:3px;font-family:var(--font-mono);">…+${stream.length-20} opcodes</div>`;
+}
+
+function renderBytecode(bc){
+  document.getElementById('st-bytes').textContent=bc.compBytes+'B';
+}
+
+function renderLexer(toks){
+  const el=document.getElementById('lex-out');
+  if(!el)return;
+  const cls={FOLD_OPEN:'t-em',FOLD_CLOSE:'t-re',STATE:'t-cy',OP:'t-go',EMIT:'t-pu',OTHER:'t-dim'};
+  el.innerHTML=toks.slice(0,16).map(t=>`<span class="${cls[t.t]||'t-dim'}" style="margin-right:5px;font-size:9px;">${t.t.toLowerCase()}</span>`).join('');
+}
+
+function renderStats(){
+  const el=document.getElementById('stat-grid');
+  if(!el)return;
+  const roms=ROM_REGISTRY.length,folds=FOLD_REGISTRY.filter(f=>f.active).length,kv=KV_CACHE.totalFilled;
+  el.innerHTML=[['ROMs',roms],['Folds Active',folds||0],['KV Filled',kv+'B'],['DNS Routes',ROM_REGISTRY.length]].map(([l,v])=>`<div class="stat-cell"><span class="stat-v">${v}</span><span class="stat-l">${l}</span></div>`).join('');
+  const xv=document.getElementById('xcfe-vecs');
+  if(xv)xv.innerHTML=[['@entropy',VM.registers.ENTROPY],['@velocity','1.00'],['@mass','1.00'],['@op-pop','"load"'],['@op-sek','"exec"'],["@op-chen",'"emit"']].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid rgba(22,242,170,.05);"><span class="t-dim">${k}</span><span class="t-em">${v}</span></div>`).join('');
+  const om=document.getElementById('opcode-map-display');
+  if(om)om.innerHTML=[['[data-op=Pop]','load'],['[data-op=Wo]','bind'],['[data-op=Sek]','exec'],["[data-op=Ch'en]",'emit'],['[data-op=Xul]','end']].map(([s,v])=>`<div style="padding:3px 4px;border-radius:2px;background:rgba(0,0,0,.2);margin-bottom:2px;"><span class="t-pu">${s}</span> { <span class="t-em">--phase:"${v}"</span> }</div>`).join('');
+}
+
+function renderAll(){renderFolds();renderShaders();renderKVCache();renderVM();renderDDS();renderStats();}
+
+function renderISA(){
+  const el=document.getElementById('isa-table-full');
+  if(!el)return;
+  el.innerHTML=Object.entries(ISA).map(([k,[hex,mnem,desc]])=>`<div style="display:grid;grid-template-columns:30px 100px 1fr;gap:5px;padding:4px 5px;border-radius:var(--r1);transition:background .1s;" onmouseover="this.style.background='rgba(22,242,170,.04)'" onmouseout="this.style.background=''"><span style="font-family:var(--font-mono);font-size:9px;color:var(--⟁go);">0x${hex.toString(16).toUpperCase().padStart(2,'0')}</span><span style="font-family:var(--font-mono);font-size:9px;color:var(--⟁em);">${mnem}</span><span style="font-size:9px;color:var(--⟁fg3);">${desc}</span></div>`).join('');
+}
+
+/* ── SIDEBAR TAB SWITCHING ──────────────────────────────────────── */
+document.querySelectorAll('[data-lt]').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('[data-lt]').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('#lp-roms,#lp-editor,#lp-grammar').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('lp-'+tab.dataset.lt)?.classList.add('active');
+  });
+});
+document.querySelectorAll('[data-rt]').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('[data-rt]').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('#rp-terminal,#rp-ast,#rp-vm,#rp-folds,#rp-stats').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('rp-'+tab.dataset.rt)?.classList.add('active');
+    if(tab.dataset.rt==='stats')renderStats();
+    if(tab.dataset.rt==='folds'){renderFolds();renderShaders();}
+    if(tab.dataset.rt==='vm'){renderVM();renderDDS();renderKVCache();}
+  });
+});
+
+function switchSidebarTab(side,tab){
+  const sel=side==='left'?`[data-lt="${tab}"]`:`[data-rt="${tab}"]`;
+  document.querySelector(sel)?.click();
+}
+
+/* ── WIDGET SYSTEM ──────────────────────────────────────────────── */
+let activeWidget=null;
+function openWidget(id){
+  if(activeWidget&&activeWidget!==id)closeWidget(activeWidget);
+  document.getElementById(id)?.classList.add('visible');
+  activeWidget=id;
+  if(id==='w-isa')renderISA();
+  if(id==='w-forum')renderForumWidget();
+}
+function closeWidget(id){
+  document.getElementById(id)?.classList.remove('visible');
+  if(activeWidget===id)activeWidget=null;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&activeWidget)closeWidget(activeWidget);});
+
+function renderForumWidget(){
+  const el=document.getElementById('forum-body');
+  if(!el||el.innerHTML.length>100)return;
+  const rom=ROM_REGISTRY.find(r=>r.id==='forum');
+  if(rom)PAGE_RENDERERS.forum(rom,{},el);
+}
+
+/* ── WALLET ─────────────────────────────────────────────────────── */
+const txData=[{desc:'Tape · DOOM World',amt:'-2.5 ASX',neg:true},{desc:'Staking Reward',amt:'+0.8 ASX',neg:false},{desc:'NFT Mint · Emerald',amt:'-1.2 ASX',neg:true},{desc:'Market Sale',amt:'+5.7 ASX',neg:false},{desc:'SCXQ2 Template',amt:'-0.9 ASX',neg:true}];
+const el_wt=document.getElementById('wallet-txs');
+if(el_wt)el_wt.innerHTML=txData.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:var(--r2);border:1px solid rgba(22,242,170,.08);background:rgba(0,0,0,.2);margin-bottom:4px;font-size:10px;"><span style="color:var(--⟁fg2);">${t.desc}</span><span style="font-family:var(--font-mono);color:${t.neg?'var(--⟁re)':'var(--⟁em)'};">${t.amt}</span></div>`).join('');
+function walletStake(){const b=document.getElementById('wallet-bal');if(b)b.textContent=(parseFloat(b.textContent)-5).toFixed(2);}
+function walletEarn(){const b=document.getElementById('wallet-bal');if(b)b.textContent=(parseFloat(b.textContent)+0.8).toFixed(2);}
+
+/* ── CHAT SYSTEM ────────────────────────────────────────────────── */
+const chatReplies=["Acknowledged. Processing through K'UHUL AST pipeline. Horizontal fold assigned.","SCXQ2 analysis initiated. Template match: T_GAME_WORLD_v3 at 96%. Compression: 0.0027.","XCFE governor applied. @physics.step: apply_force→integrate→collide→resolve.","Emerald Ghost UI generated. CSS runtime active. @dom.render dispatched via xcfe_action.","⟁Pop attention_fold → [Sek] DISPATCH_SHADER → [Sek] ATTENTION → [Ch'en] emit → [Xul]","Brain consensus: truth:0.40 helpful:0.25 safety:0.20. Response via ⟁Ch'en."];
+let _ci=0;
+function sendChat(){
+  const ta=document.getElementById('chat-ta');const msgs=document.getElementById('chat-msgs');
+  if(!ta||!msgs)return;const txt=ta.value.trim();if(!txt)return;ta.value='';
+  const now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const u=document.createElement('div');u.className='msg user';u.innerHTML=`<div class="msg-hdr"><span>You</span><span>${now}</span></div>${txt}`;msgs.appendChild(u);msgs.scrollTop=msgs.scrollHeight;
+  setTimeout(()=>{const a=document.createElement('div');a.className='msg ai';const name=document.getElementById('chat-model-name')?.textContent||'AI';a.innerHTML=`<div class="msg-hdr"><span>${name}</span><span>${now}</span></div>${chatReplies[_ci++%chatReplies.length]}`;msgs.appendChild(a);msgs.scrollTop=msgs.scrollHeight;},900);
+}
+document.getElementById('chat-ta')?.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
+function selectChatModel(el,name){document.querySelectorAll('.chat-model-item').forEach(i=>i.classList.remove('active'));el.classList.add('active');const nm=document.getElementById('chat-model-name');if(nm)nm.textContent=name;}
+function toggleChatSidebar(tab,pane){document.querySelectorAll('.chat-nav-tab').forEach(t=>t.style.borderBottom='');tab.style.borderBottom='2px solid var(--⟁em)';document.getElementById('chat-sidebar-models').style.display=pane==='models'?'':'none';document.getElementById('chat-sidebar-files').style.display=pane==='files'?'':'none';}
+
+/* ── RUNTIME TERMINAL ───────────────────────────────────────────── */
+document.getElementById('rt-cmd')?.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;const cmd=e.target.value.trim();if(!cmd)return;e.target.value='';
+  const log=document.getElementById('rt-log');if(log){const d=document.createElement('div');d.innerHTML=`<span style="color:#00ff99;">$</span> ${cmd} → <span style="color:#44ffb0;">OK</span>`;log.appendChild(d);log.scrollTop=log.scrollHeight;}
+  KLOG.log(`[RT] ${cmd}`,'val');
+});
+
+/* ── KERNEL LOGGER ──────────────────────────────────────────────── */
+const KLOG={log(msg,type='dim'){
+  const term=document.getElementById('terminal');if(!term)return;
+  const d=document.createElement('div');d.className='tl';
+  const cls={op:'t-em',val:'t-cy',out:'t-go',err:'t-re',sys:'t-pu',dim:'t-dim'};
+  d.innerHTML=`<span class="${cls[type]||'t-dim'}">${msg}</span>`;
+  term.appendChild(d);term.scrollTop=term.scrollHeight;
+  while(term.children.length>400)term.removeChild(term.firstChild);
+}};
+
+/* ── TERMINAL COMMANDS ──────────────────────────────────────────── */
+const CMDS={async exec(cmd){
+  const[c,...args]=cmd.split(' ');
+  if(c==='load'&&args[0]){BSON_SERVER.loadROM(args[0]);return;}
+  if(c==='compile'){COMPILER.compile(document.getElementById('src-editor')?.value||'',currentGrammar);return;}
+  if(c==='run'){await VM.runInference();return;}
+  if(c==='step'){await VM.stepOnce();return;}
+  if(c==='reset'){VM.reset();return;}
+  if(c==='grammar'&&args[0]){setGrammar(args[0]);return;}
+  if(c==='fold'&&args[0]){activateFold(args.join(' ').toUpperCase()+'_FOLD');return;}
+  if(c==='isa'){openWidget('w-isa');return;}
+  if(c==='bson'){openWidget('w-bson');return;}
+  if(c==='ls'){ROM_REGISTRY.forEach(r=>KLOG.log(`${r.icon} ${r.id.padEnd(14)} ${r.route}`,'val'));return;}
+  if(c==='clear'){document.getElementById('terminal').innerHTML='';return;}
+  if(c==='dns'){const r=await DNS.resolve('GET','/os/dns/table');KLOG.log(`DNS: ${r.body.routes.length} routes`,'out');return;}
+  if(c==='help'){['load <rom-id>  — mount ROM','compile       — lex→ast→lower→pack','run           — inference VM','step/reset    — VM control','grammar <n>   — kuhul|json|html|css|scx','isa           — opcode table widget','bson          — BSON inspector widget','ls            — list ROMs','dns           — route table','fold <name>   — activate fold','clear         — clear terminal'].forEach(h=>KLOG.log(h,'dim'));return;}
+  KLOG.log(`Unknown: ${cmd} — help`,'err');
+}};
+
+document.getElementById('t-in')?.addEventListener('keydown',async e=>{
+  if(e.key!=='Enter')return;const v=e.target.value.trim();if(!v)return;
+  KLOG.log(`isa$ ${v}`,'sys');e.target.value='';await CMDS.exec(v);
+});
+
+function setStatus(fold,op,shader){
+  if(fold){document.getElementById('st-fold').textContent=fold;document.getElementById('hdr-fold').textContent='Fold: '+fold;}
+  if(op){document.getElementById('st-op').textContent=op;document.getElementById('hdr-op').textContent='Op: '+op;}
+  if(shader)document.getElementById('st-shader').textContent=shader;
+}
+
+/* ── GLYPH RAIN ─────────────────────────────────────────────────── */
+(()=>{
+  const c=document.getElementById('rain');const ctx=c.getContext('2d');
+  const g='⟁∫∂∑∏◇⚡↑↓⟳⊕Pop Wo Sek Xul Yax⟹⬡⊞⊡⬢0x01 0x04 0x0B ISA AST';
+  let w,h,cols,drops;
+  const resize=()=>{w=c.width=window.innerWidth;h=c.height=window.innerHeight;cols=Math.floor(w/16);drops=Array.from({length:cols},()=>Math.random()*h);};
+  const draw=()=>{ctx.fillStyle='rgba(2,6,23,.13)';ctx.fillRect(0,0,w,h);ctx.fillStyle='rgba(22,242,170,.42)';ctx.font='12px "JetBrains Mono",monospace';for(let i=0;i<drops.length;i++){ctx.fillText(g[Math.floor(Math.random()*g.length)],i*16,drops[i]*16);if(drops[i]*16>h&&Math.random()>.978)drops[i]=0;else drops[i]+=.35+Math.random()*.3;}requestAnimationFrame(draw);};
+  window.addEventListener('resize',resize);resize();requestAnimationFrame(draw);
+})();
+
+/* ── CLOCK + ENTROPY DRIFT ──────────────────────────────────────── */
+setInterval(()=>{
+  const t=new Date();const el=document.getElementById('hdr-clock');
+  if(el)el.textContent=t.toTimeString().slice(0,8);
+  VM.registers.ENTROPY=parseFloat((Math.random()*.3+.05).toFixed(3));
+  document.getElementById('st-entropy').textContent=VM.registers.ENTROPY;
+},2500);
+
+/* ── BOOT SEQUENCE ──────────────────────────────────────────────── */
+const BOOT_STEPS=[
+  {msg:'⟁Pop kernel_v17',pct:5,s:'lex'},
+  {msg:'[Wo] Lexer init · grammar parsers ready',pct:12,s:'lex'},
+  {msg:'[Sek] AST builder · truth layer online',pct:20,s:'ast'},
+  {msg:'[Sek] Fold verifier · semantic law active',pct:28,s:'fold'},
+  {msg:'[Sek] ISA opcode table · 18 opcodes',pct:36,s:'lower'},
+  {msg:'[Sek] Opcode lowering pipeline ready',pct:44,s:'lower'},
+  {msg:'[Sek] SCXQ2 packer · bytecode lanes init',pct:52,s:'pack'},
+  {msg:`[Sek] ROM registry · ${ROM_REGISTRY.length} objects registered`,pct:60,s:'pack'},
+  {msg:'[Sek] Local DNS routes registered (sw.khl)',pct:67,s:'dispatch'},
+  {msg:'[Sek] Fold runtime · 8 domains',pct:73,s:'dispatch'},
+  {msg:'[Sek] Shader registry · 8 kernels',pct:79,s:'shader'},
+  {msg:'[Sek] Inference VM · minimal stack',pct:85,s:'shader'},
+  {msg:'[Sek] KV cache · 2048 slots',pct:90,s:'shader'},
+  {msg:'[Sek] DDS registry · 5 shards',pct:94,s:'shader'},
+  {msg:"[Ch'en] DOM render · 3-pane OS shell",pct:98,s:'shader'},
+  {msg:'[Xul] ⟁ K\'UHUL ISA Runtime v17 ONLINE',pct:100,s:'shader'},
+];
+
+async function boot(){
+  const log=document.getElementById('blog');const bar=document.getElementById('bfill');
+  let lastS='';
+  for(const step of BOOT_STEPS){
+    await new Promise(r=>setTimeout(r,70+Math.random()*50));
+    const d=document.createElement('div');d.style.color='#16f2aa';d.textContent=step.msg;
+    log.appendChild(d);log.scrollTop=log.scrollHeight;bar.style.width=step.pct+'%';
+    if(step.s!==lastS){
+      document.querySelector(`[data-s="${step.s}"]`)?.classList.add('active');
+      if(lastS)document.querySelector(`[data-s="${lastS}"]`)?.classList.replace('active','done');
+      lastS=step.s;
+    }
+  }
+  document.querySelectorAll('.bp').forEach(s=>{s.classList.remove('active');s.classList.add('done');});
+  await new Promise(r=>setTimeout(r,300));
+  document.getElementById('boot').classList.add('gone');
+  document.getElementById('os').classList.add('visible');
+  document.querySelector('[data-os]').dataset.state='running';
+
+  // Initialize everything
+  initDNS();
+  renderROMList();
+  renderFolds();
+  renderShaders();
+  renderKVCache();
+  renderVM();
+  renderDDS();
+  renderStats();
+  setGrammar('kuhul');
+
+  KLOG.log('⟁ MX2LM OS v17 · K\'UHUL ISA Runtime','sys');
+  KLOG.log('Three-pane OS: left(ROM-driven) | center(page) | right(ROM-driven)','sys');
+  KLOG.log(`DNS: ${ROM_REGISTRY.length} routes · Folds: 8 · ISA: 18 opcodes · KV: 2048 slots`,'val');
+  KLOG.log("Type 'help' for commands",'dim');
+
+  // Auto-compile default grammar + load home
+  setTimeout(()=>COMPILER.compile(GRAMMAR_SAMPLES.kuhul,'kuhul'),200);
+  setTimeout(()=>BSON_SERVER.loadROM('home'),500);
+}
+
+boot();
+</script>
+</body>
+</html>

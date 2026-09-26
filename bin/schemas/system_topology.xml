@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<topology name="supernaut-local">
+  <node id="surface" role="intake"/>
+  <node id="semantic" role="reasoning"/>
+  <node id="meta" role="orchestration"/>
+  <edge from="surface" to="semantic"/>
+  <edge from="semantic" to="meta"/>
+</topology>
+
