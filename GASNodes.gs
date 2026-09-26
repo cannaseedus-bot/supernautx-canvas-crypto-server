@@ -418,7 +418,14 @@ function isMutationEndpoint_(endpoint) {
 // -----------------------------------------------------------------------------
 
 function transpileControlGrammar_(data) {
-  var normalized = normalizeProgramInput_(data || {});
+  var lexicon = normalizeLexicon_(
+    data.lexicon ||
+    data.wordsManifest ||
+    data.dictionary ||
+    null
+  );
+
+  var normalized = normalizeProgramInput_(data || {}, lexicon);
   if (normalized.statements.length === 0) {
     throw appError_(
       'invalid_program',
@@ -431,7 +438,7 @@ function transpileControlGrammar_(data) {
   var warnings = normalized.warnings.slice();
 
   for (var i = 0; i < normalized.statements.length; i++) {
-    var statement = normalizeStatement_(normalized.statements[i], i);
+    var statement = normalizeStatement_(normalized.statements[i], i, lexicon);
     var node = buildIntentAstNode_(statement, i);
     var op = buildExecutionPlanOp_(node, i);
     astBody.push(node);
@@ -442,6 +449,10 @@ function transpileControlGrammar_(data) {
     grammar: KHANARY_CONTROL_GRAMMAR.VERSION,
     tokenTypes: KHANARY_CONTROL_GRAMMAR.TOKEN_TYPES,
     sourceMode: normalized.sourceMode,
+    lexicon: {
+      enabled: lexicon.enabled,
+      keyCount: lexicon.keyCount
+    },
     tokenCount: normalized.tokenCount,
     statementCount: plan.length,
     warnings: warnings,
@@ -454,7 +465,7 @@ function transpileControlGrammar_(data) {
   };
 }
 
-function normalizeProgramInput_(data) {
+function normalizeProgramInput_(data, lexicon) {
   var warnings = [];
   var statements = [];
   var tokenCount = 0;
@@ -466,7 +477,7 @@ function normalizeProgramInput_(data) {
   } else if (Array.isArray(data.tokens)) {
     sourceMode = 'tokens';
     tokenCount = data.tokens.length;
-    statements = tokensToStatements_(data.tokens, warnings);
+    statements = tokensToStatements_(data.tokens, warnings, lexicon);
   } else {
     sourceMode = 'none';
   }
@@ -479,12 +490,12 @@ function normalizeProgramInput_(data) {
   };
 }
 
-function tokensToStatements_(tokens, warnings) {
+function tokensToStatements_(tokens, warnings, lexicon) {
   var statements = [];
   var current = createEmptyStatement_();
 
   for (var i = 0; i < tokens.length; i++) {
-    var token = normalizeToken_(tokens[i], i);
+    var token = normalizeToken_(tokens[i], i, lexicon);
     if (token.type === 'literal') {
       // Statement boundary markers.
       if (token.value === ';' || token.value === 'EOL' || token.value === 'NEWLINE') {
@@ -513,7 +524,7 @@ function tokensToStatements_(tokens, warnings) {
   return statements;
 }
 
-function normalizeToken_(token, index) {
+function normalizeToken_(token, index, lexicon) {
   if (!token || typeof token !== 'object' || Array.isArray(token)) {
     throw appError_('invalid_token', 'Token at index ' + index + ' must be an object');
   }
@@ -535,7 +546,10 @@ function normalizeToken_(token, index) {
   if (type === 'flag') {
     return {
       type: type,
-      value: normalizeIdentifierLike_(value, 'flag', 128)
+      value: canonicalizeLexiconValue_(
+        normalizeIdentifierLike_(value, 'flag', 128),
+        lexicon
+      )
     };
   }
 
@@ -548,7 +562,10 @@ function normalizeToken_(token, index) {
 
   return {
     type: type,
-    value: normalizeIdentifierLike_(value, type, 256)
+    value: canonicalizeLexiconValue_(
+      normalizeIdentifierLike_(value, type, 256),
+      lexicon
+    )
   };
 }
 
@@ -639,24 +656,24 @@ function assignTokenToStatement_(statement, token, warnings) {
   }
 }
 
-function normalizeStatement_(raw, index) {
+function normalizeStatement_(raw, index, lexicon) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw appError_('invalid_statement', 'Statement at index ' + index + ' must be an object');
   }
 
   var normalized = createEmptyStatement_();
-  normalized.verb = normalizeVerb_(raw.verb || raw.action || raw.op || '');
-  normalized.command = optionalIdentifierLike_(raw.command || raw.cmd || '', 'command', 256);
-  normalized['function'] = optionalIdentifierLike_(raw['function'] || raw.fn || '', 'function', 256);
-  normalized.tool_call = optionalIdentifierLike_(raw.tool_call || raw.tool || raw.toolcall || '', 'tool_call', 256);
-  normalized.capability = optionalIdentifierLike_(raw.capability || raw.scope || '', 'capability', 128);
-  normalized.peer = optionalIdentifierLike_(raw.peer || raw.targetPeer || '', 'peer', 128);
-  normalized.route = optionalIdentifierLike_(raw.route || raw.routeId || '', 'route', 128);
+  normalized.verb = normalizeVerb_(raw.verb || raw.action || raw.op || '', lexicon);
+  normalized.command = optionalIdentifierLike_(raw.command || raw.cmd || '', 'command', 256, lexicon);
+  normalized['function'] = optionalIdentifierLike_(raw['function'] || raw.fn || '', 'function', 256, lexicon);
+  normalized.tool_call = optionalIdentifierLike_(raw.tool_call || raw.tool || raw.toolcall || '', 'tool_call', 256, lexicon);
+  normalized.capability = optionalIdentifierLike_(raw.capability || raw.scope || '', 'capability', 128, lexicon);
+  normalized.peer = optionalIdentifierLike_(raw.peer || raw.targetPeer || '', 'peer', 128, lexicon);
+  normalized.route = optionalIdentifierLike_(raw.route || raw.routeId || '', 'route', 128, lexicon);
   normalized.args = normalizeArgs_(raw.args || raw.arguments || raw.params || {}, index);
 
   if (Array.isArray(raw.flags)) {
     for (var i = 0; i < raw.flags.length; i++) {
-      var flagValue = optionalIdentifierLike_(raw.flags[i], 'flag', 128);
+      var flagValue = optionalIdentifierLike_(raw.flags[i], 'flag', 128, lexicon);
       if (flagValue && normalized.flags.indexOf(flagValue) === -1) {
         normalized.flags.push(flagValue);
       }
@@ -731,8 +748,8 @@ function deriveVerb_(statement) {
   return 'invoke';
 }
 
-function normalizeVerb_(value) {
-  var v = optionalIdentifierLike_(value, 'verb', 64).toLowerCase();
+function normalizeVerb_(value, lexicon) {
+  var v = optionalIdentifierLike_(value, 'verb', 64, lexicon).toLowerCase();
   if (!v) return '';
   return v;
 }
@@ -744,9 +761,12 @@ function resolveOpcodeForVerb_(verb) {
   return 'EXEC';
 }
 
-function optionalIdentifierLike_(value, fieldName, maxLen) {
+function optionalIdentifierLike_(value, fieldName, maxLen, lexicon) {
   if (value === undefined || value === null || value === '') return '';
-  return normalizeIdentifierLike_(value, fieldName, maxLen);
+  return canonicalizeLexiconValue_(
+    normalizeIdentifierLike_(value, fieldName, maxLen),
+    lexicon
+  );
 }
 
 function normalizeIdentifierLike_(value, fieldName, maxLen) {
@@ -757,7 +777,7 @@ function normalizeIdentifierLike_(value, fieldName, maxLen) {
   if (out.length > maxLen) {
     throw appError_('invalid_' + fieldName, fieldName + ' too long');
   }
-  if (!/^[A-Za-z0-9._:-]+$/.test(out)) {
+  if (!/^[A-Za-z0-9._:@-]+$/.test(out)) {
     throw appError_('invalid_' + fieldName, fieldName + ' contains unsupported characters');
   }
   return out;
@@ -797,6 +817,73 @@ function mergePlainObjects_(left, right) {
 
 function clonePlainObject_(obj) {
   return JSON.parse(JSON.stringify(obj || {}));
+}
+
+function normalizeLexicon_(rawLexicon) {
+  if (!rawLexicon || typeof rawLexicon !== 'object' || Array.isArray(rawLexicon)) {
+    return {
+      enabled: false,
+      keyCount: 0,
+      keyMap: {},
+      aliasMap: {}
+    };
+  }
+
+  var keyMap = {};
+  var aliasMap = {};
+  var keyCount = 0;
+  var keys = Object.keys(rawLexicon);
+
+  for (var i = 0; i < keys.length; i++) {
+    var canonical = String(keys[i] || '').trim();
+    if (!canonical) continue;
+
+    var canonicalLower = canonical.toLowerCase();
+    if (!keyMap[canonicalLower]) {
+      keyMap[canonicalLower] = canonical;
+      keyCount++;
+    }
+
+    var values = rawLexicon[keys[i]];
+    if (!Array.isArray(values)) continue;
+
+    for (var j = 0; j < values.length; j++) {
+      var entry = values[j];
+      if (typeof entry !== 'string') continue;
+
+      var alias = entry.trim();
+      if (!alias) continue;
+      var aliasLower = alias.toLowerCase();
+
+      // Skip metadata-ish lexicon entries.
+      if (aliasLower.indexOf('intent:') === 0) continue;
+      if (aliasLower.indexOf('range:') === 0) continue;
+      if (aliasLower.indexOf('not:') === 0) continue;
+      if (aliasLower.indexOf('phase:') === 0) continue;
+      if (aliasLower.indexOf('eliza-1:') === 0) continue;
+
+      if (!aliasMap[aliasLower]) {
+        aliasMap[aliasLower] = canonical;
+      }
+    }
+  }
+
+  return {
+    enabled: keyCount > 0,
+    keyCount: keyCount,
+    keyMap: keyMap,
+    aliasMap: aliasMap
+  };
+}
+
+function canonicalizeLexiconValue_(value, lexicon) {
+  if (typeof value !== 'string') return value;
+  if (!lexicon || !lexicon.enabled) return value;
+
+  var lower = value.toLowerCase();
+  if (lexicon.keyMap[lower]) return lexicon.keyMap[lower];
+  if (lexicon.aliasMap[lower]) return lexicon.aliasMap[lower];
+  return value;
 }
 
 function isSessionEnforced_() {

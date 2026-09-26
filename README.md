@@ -181,6 +181,11 @@ Response includes:
 - `ast` (`Program` + `Intent[]`)
 - `plan` (opcode/target/args per statement)
 
+You can also provide a KHANARY lexicon map (same structure as
+`C:\Users\canna\_khanary_inspect\KHANARY.CPP\data\manifest\words.manifest.json`)
+via `lexicon` or `wordsManifest`. The transpiler canonicalizes aliases/synonyms
+to their manifest key before building AST/plan.
+
 ## Crypto-network integration guidance
 
 - GAS node = control plane (state/dispatch), not transport plane.
